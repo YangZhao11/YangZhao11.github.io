@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<head>
+  <title>Nonogram solver</title>
+  <script src="nonogram.js"></script>
+  <style>
+    .g {
+        height: 15px;
+        width: 15px;
+        border: 1px solid #888;
+        padding: 0;
+    }
+    #tb {
+        border-collapse: collapse;
+    }
+    .colH {
+        height: 140px;
+    }
+    .colH div {
+        width: 15px;
+        transform: rotate(90deg) translate(-70px, 0px);
+    }
+    .colH input {
+        text-align: right;
+        font-family: monospace;
+        height: 13px;
+    }
+    .rowH {
+        height: 15px;
+    }
+    .rowH input {
+        text-align: right;
+        font-family: monospace;
+    }
+    .set.c1 {
+        background-color: black;
+    }
+    .set.c2 {
+        background-color: blue;
+    }
+    .set.c3 {
+        background-color: darkgreen;
+    }
+    .set.c4 {
+        background-color: #772;
+    }
+    .set.c5 {
+        background-color: #842;
+    }
+    .set.c6 {
+        background-color: darkred;
+    }
+    .x::before {
+        content: '╳';
+    }
+    .x.c1 {
+        color: black;
+    }
+    .x.c2 {
+        color: blue;
+    }
+    .x.c3 {
+        color: darkgreen;
+    }
+    .x.c4 {
+        color: #772;
+    }
+    .x.c5 {
+        color: #842;
+    }
+    .x.c6 {
+        color: darkred;
+    }
+  </style>
+</head>
+<body>
+  1. <label>Dimension:</label>
+  <input id="dim-width" type="number" value="10"> ×
+  <input id="dim-height" type="number" value="10">
+  <input id="btn-clear" type="button" value="Clear">
+
+  2. <label>Delay</label>
+  <input id="delay" type="number" value="10">ms
+  <input id="btn-solve" type="button" value="Solve">
+  <hr>
+  <table id="tb">
+  </table>
+</body>
