@@ -8,6 +8,7 @@
         width: 15px;
         border: 1px solid #888;
         padding: 0;
+        line-height: 0;
     }
     #tb {
         border-collapse: collapse;
@@ -18,18 +19,23 @@
     .colH div {
         width: 15px;
         transform: rotate(90deg) translate(-70px, 0px);
+        font-family: monospace;
+        text-align: right;
     }
     .colH input {
         text-align: right;
-        font-family: monospace;
         height: 13px;
+    }
+    .segment {
+        margin-left: 1ex;
     }
     .rowH {
         height: 15px;
+        font-family: monospace;
+        text-align: right;
     }
     .rowH input {
         text-align: right;
-        font-family: monospace;
     }
     .set.c1 {
         background-color: black;
@@ -79,7 +85,7 @@
   <input id="btn-clear" type="button" value="Clear">
 
   2. <label>Delay</label>
-  <input id="delay" type="number" value="10">ms
+  <input id="delay" type="number" value="1000">ms
   <input id="btn-solve" type="button" value="Solve">
   <hr>
   <table id="tb">

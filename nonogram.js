@@ -87,7 +87,33 @@ class UI {
             }
             tb.appendChild(tr)
         }
+    }
 
+    replaceInput(input) {
+        let id = input.id
+        let vals = input.value.split(" ").map(x => parseInt(x)).filter(x => !isNaN(x))
+        let parent = input.parentNode
+        parent.removeChild(input)
+        vals.forEach((v, i) => {
+            let span = document.createElement("span")
+            span.textContent = v
+            span.className = "segment"
+            span.id = id + "-" + i
+            parent.appendChild(span)
+        })
+        return vals
+    }
+
+    getSegments() {
+        let cols = []
+        for (let x = 0; x < this.width; x++) {
+            cols.push(this.replaceInput(document.getElementById("c"+x)))
+        }
+        let rows = []
+        for (let y = 0; y < this.height; y++) {
+            rows.push(this.replaceInput(document.getElementById("r"+y)))
+        }
+        return rows, cols
     }
 }
 
@@ -100,56 +126,51 @@ function OnClearBtn() {
         return
     }
     ui = new UI(document.getElementById("tb"))
+    if (processID) {clearTimeout(processID)}
     ui.createDOM(width, height)
 }
 
 class Solver {
-    constructor(width, height) {
-        this.width = width
-        this.height = height
-    }
-
-    setSegments(rows, cols) {
+    constructor(ui) {
+        this.ui = ui
+        this.width = ui.width
+        this.height = ui.height
+        let rows, cols = ui.getSegments()
         this.rows = rows
         this.cols = cols
     }
 
-    *solve(ui) {
-        ui.setXY(0,0, 1)
-        yield true
-        ui.setXY(0,1, 1)
-        yield true
-        ui.setXY(1,0, 2)
-        yield true
-        ui.pushState()
-        ui.setXY(2,2,1)
-        yield true
-        for (let x = 0; x < this.width; x++) {
-            ui.setXY(x,4,2)
-            yield true
+    *solveLine(){
+
+    }
+
+    *solve() {
+        for (let i = 0; i < 1000; i++) {
+            let x = Math.floor(Math.random()*this.width)
+            let y = Math.floor(Math.random()*this.height)
+            let val = Math.floor(Math.random()*3)
+            ui.setXY(x,y,val)
+            yield
         }
-        for (let y=0; y<this.height; y++) {
-            ui.setXY(3,y,1)
-            yield true
-        }
-        yield false
     }
 }
 
-var process
-var delay
+var process                     // generator
+var delay                       // delay
+var solver
+var processID
 
 function runProcess() {
-    if (process.next()) {
-        setTimeout(runProcess, delay)
+    if (!process.next().done) {
+        processID = setTimeout(runProcess, delay)
     }
 }
 
 function OnSolveBtn() {
     delay = parseInt(document.getElementById("delay").value)
-    let s = new Solver(ui.width, ui.height)
-    process = s.solve(ui)
-    setTimeout(runProcess)
+    solver = new Solver(ui)
+    process = solver.solve()
+    processID = setTimeout(runProcess)
 }
 
 
