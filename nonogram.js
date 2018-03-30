@@ -132,6 +132,41 @@ function OnClearBtn() {
     ui = new UI(document.getElementById("tb"))
     if (processID) {clearTimeout(processID)}
     ui.createDOM(width, height)
+
+    process = null
+    processID = null
+    let btnSolve = document.getElementById("btn-solve")
+    btnSolve.value = "▶"
+}
+
+
+function OnTestBtn() {
+    document.getElementById("dim-width").value = "10"
+    document.getElementById("dim-height").value = "10"
+    OnClearBtn()
+    setTimeout(function(){
+        document.getElementById("r0").value = "1 1"
+        document.getElementById("r1").value = "1 1"
+        document.getElementById("r2").value = "1 1 1"
+        document.getElementById("r3").value = "1 2 1"
+        document.getElementById("r4").value = "5"
+        document.getElementById("r5").value = "5 1"
+        document.getElementById("r6").value = "7"
+        document.getElementById("r7").value = "7"
+        document.getElementById("r8").value = "6"
+        document.getElementById("r9").value = "5 3"
+
+        document.getElementById("c0").value = "6 1"
+        document.getElementById("c1").value = "3 2"
+        document.getElementById("c2").value = "6"
+        document.getElementById("c3").value = "7"
+        document.getElementById("c4").value = "9"
+        document.getElementById("c5").value = "3"
+        document.getElementById("c6").value = "1 3"
+        document.getElementById("c7").value = "2 1"
+        document.getElementById("c8").value = "1 1 1"
+        document.getElementById("c9").value = "2 1"
+    })
 }
 
 class Slice {
@@ -255,54 +290,75 @@ var solver                      // solver object
 var processID                   // id returned by setTimeOut
 
 function runProcess() {
-    if (!process.next().done) {
-        processID = setTimeout(runProcess, delay)
+    let n = process.next()
+    if (!n.done) {
+        let d = delay
+        if (n.value != null) {
+            d *= n.value
+        }
+        processID = setTimeout(runProcess, d)
     } else {
         processID = null
+        process = null
+
     }
 }
 
 function OnSolveBtn() {
-    delay = parseInt(document.getElementById("delay").value)
-    solver = new Solver(ui)
-    process = solver.solve()
-    processID = setTimeout(runProcess)
+    if (processID != null) {
+        clearTimeout(processID)
+        processID = null
+        this.value = "▶"
+    } else if (process != null) {
+        processID = setTimeout(runProcess)
+        this.value = "❙❙"
+    } else {
+        solver = new Solver(ui)
+        process = solver.solve()
+        processID = setTimeout(runProcess)
+        this.value = "❙❙"
+    }
 }
 
-
-function OnTestBtn() {
-    document.getElementById("dim-width").value = "10"
-    document.getElementById("dim-height").value = "10"
-    OnClearBtn()
-    setTimeout(function(){
-        document.getElementById("r0").value = "1 1"
-        document.getElementById("r1").value = "1 1"
-        document.getElementById("r2").value = "1 1 1"
-        document.getElementById("r3").value = "1 2 1"
-        document.getElementById("r4").value = "5"
-        document.getElementById("r5").value = "5 1"
-        document.getElementById("r6").value = "7"
-        document.getElementById("r7").value = "7"
-        document.getElementById("r8").value = "6"
-        document.getElementById("r9").value = "5 3"
-
-        document.getElementById("c0").value = "6 1"
-        document.getElementById("c1").value = "3 2"
-        document.getElementById("c2").value = "6"
-        document.getElementById("c3").value = "7"
-        document.getElementById("c4").value = "9"
-        document.getElementById("c5").value = "3"
-        document.getElementById("c6").value = "1 3"
-        document.getElementById("c7").value = "2 1"
-        document.getElementById("c8").value = "1 1 1"
-        document.getElementById("c9").value = "2 1"
-    })
+function OnNextBtn() {
+    if (process == null) {
+        console.log("Start solver first")
+        return
+    }
+    if (process.next().done) {
+        processID = null
+        process = null
+    }
 }
+
+function OnRunAllBtn() {
+    if (process == null) {
+        console.log("Start solver first")
+        return
+    }
+    while (!process.next().done) {
+    }
+
+    processID = null
+    process = null
+}
+
+const delayValues = [2000, 1000, 500, 100, 10]
+
+function OnDelayChange() {
+    let v = parseInt(document.getElementById("delay").value)
+    delay = delayValues[v]
+}
+
 
 function OnLoaded() {
     document.getElementById("btn-clear").addEventListener("click", OnClearBtn)
-    document.getElementById("btn-solve").addEventListener("click", OnSolveBtn)
     document.getElementById("btn-test").addEventListener("click", OnTestBtn)
+    document.getElementById("btn-solve").addEventListener("click", OnSolveBtn)
+    document.getElementById("btn-next").addEventListener("click", OnNextBtn)
+    document.getElementById("btn-runall").addEventListener("click", OnRunAllBtn)
+    document.getElementById("delay").addEventListener("change", OnDelayChange)
+    OnDelayChange()
 }
 
 document.addEventListener("DOMContentLoaded", OnLoaded)
