@@ -10,6 +10,10 @@ function CheckDims(width, height) {
     return true
 }
 
+const STATE_EMPTY = 0
+const STATE_SOLID = 1
+const STATE_X = 2
+
 class UI {
     constructor(tb) {
         this.tb = tb
@@ -33,13 +37,13 @@ class UI {
             return
         }
         switch (state) {
-        case 0:
+        case STATE_EMPTY:
             cell.className = "g"
             break
-        case 1:
+        case STATE_SOLID:
             cell.className = "g set c" + this.color
             break
-        case 2:
+        case STATE_X:
             cell.className = "g x c" + this.color
         }
     }
@@ -113,7 +117,7 @@ class UI {
         for (let y = 0; y < this.height; y++) {
             rows.push(this.replaceInput(document.getElementById("r"+y)))
         }
-        return rows, cols
+        return {rows, cols}
     }
 }
 
@@ -130,39 +134,131 @@ function OnClearBtn() {
     ui.createDOM(width, height)
 }
 
+class Slice {
+    constructor(solver, offset0, step, length) {
+        this.solver = solver
+        this.g = solver.g
+        this.offset0 = offset0
+        this.step = step
+        this.length = length
+    }
+
+    getX(i) {
+        return this.g[this.offset0+this.step*i]
+    }
+
+    setX(i, val) {
+        const o = this.offset0+this.step*i
+        const x = o % this.solver.width
+        const y = (o-x) / this.solver.width
+        this.solver.setXY(x,y,val)
+    }
+
+    setSegment(i,j,val) {
+        for (let n = i; n < j; n++) {
+            this.setX(n, val)
+        }
+    }
+}
+
+const ROW = 0
+const COLUMN = 1
+
 class Solver {
     constructor(ui) {
         this.ui = ui
         this.width = ui.width
         this.height = ui.height
-        let rows, cols = ui.getSegments()
-        this.rows = rows
-        this.cols = cols
+        let seg = ui.getSegments()
+        this.rows = seg.rows
+        this.cols = seg.cols
+        this.g = new Int8Array(this.width * this.height)
+        this.dirty = []
+        for (let x = 0; x < this.width; x++) {
+            this.dirty.push({dir: COLUMN, num: x})
+        }
+        for (let y = 0; y < this.height; y++) {
+            this.dirty.push({dir: ROW, num: y})
+        }
     }
 
-    *solveLine(){
+    getXY(x,y) {
+        return this.g[x + y*this.width]
+    }
 
+    setXY(x,y, val) {
+        if (val == this.getXY(x,y)) {
+            return
+        }
+        this.g[x+y*this.width] = val
+        this.ui.setXY(x,y,val)
+        if (this.line.dir == ROW) {
+            this.markDirty({dir: COLUMN, num: x})
+        } else {
+            this.markDirty({dir:ROW, num: y})
+        }
+    }
+
+    markDirty(desc) {
+        for (let i = 0; i < this.dirty.length; i++) {
+            let d = this.dirty[i]
+            if (d.dir == desc.dir && d.num == desc.num) {
+                return
+            }
+        }
+        this.dirty.push(desc)
+    }
+
+    /**
+     * getSlice takes a description and returns a Slice object
+     * referencing those cells. Description is an object with
+     * dir=ROW|COLUMN and num.
+     *
+     */
+    getSlice(desc) {
+        if (desc.dir == ROW) {
+            return new Slice(this, this.width*desc.num, 1, this.width)
+        }
+        return new Slice(this, desc.num, this.width, this.height)
+    }
+
+    getSegments(desc) {
+        if (desc.dir == ROW) {
+            return this.rows[desc.num]
+        }
+        return this.cols[desc.num]
+    }
+
+    *solveLine(slice, segments){
+        for (let i = 0; i < slice.length; i++) {
+            if (slice.getX(i) == STATE_EMPTY && Math.random()<0.2) {
+                slice.setX(i, Math.floor(Math.random()*2)+1)
+                yield
+            }
+        }
     }
 
     *solve() {
-        for (let i = 0; i < 1000; i++) {
-            let x = Math.floor(Math.random()*this.width)
-            let y = Math.floor(Math.random()*this.height)
-            let val = Math.floor(Math.random()*3)
-            ui.setXY(x,y,val)
-            yield
+        while (this.dirty.length > 0) {
+            this.line = this.dirty.pop()
+            console.log("looking at dir"+ this.line.dir+" num"+this.line.num)
+            let slice = this.getSlice(this.line)
+            let segments = this.getSegments(this.line)
+            yield* this.solveLine(slice, segments)
         }
     }
 }
 
 var process                     // generator
 var delay                       // delay
-var solver
-var processID
+var solver                      // solver object
+var processID                   // id returned by setTimeOut
 
 function runProcess() {
     if (!process.next().done) {
         processID = setTimeout(runProcess, delay)
+    } else {
+        processID = null
     }
 }
 
@@ -174,9 +270,39 @@ function OnSolveBtn() {
 }
 
 
+function OnTestBtn() {
+    document.getElementById("dim-width").value = "10"
+    document.getElementById("dim-height").value = "10"
+    OnClearBtn()
+    setTimeout(function(){
+        document.getElementById("r0").value = "1 1"
+        document.getElementById("r1").value = "1 1"
+        document.getElementById("r2").value = "1 1 1"
+        document.getElementById("r3").value = "1 2 1"
+        document.getElementById("r4").value = "5"
+        document.getElementById("r5").value = "5 1"
+        document.getElementById("r6").value = "7"
+        document.getElementById("r7").value = "7"
+        document.getElementById("r8").value = "6"
+        document.getElementById("r9").value = "5 3"
+
+        document.getElementById("c0").value = "6 1"
+        document.getElementById("c1").value = "3 2"
+        document.getElementById("c2").value = "6"
+        document.getElementById("c3").value = "7"
+        document.getElementById("c4").value = "9"
+        document.getElementById("c5").value = "3"
+        document.getElementById("c6").value = "1 3"
+        document.getElementById("c7").value = "2 1"
+        document.getElementById("c8").value = "1 1 1"
+        document.getElementById("c9").value = "2 1"
+    })
+}
+
 function OnLoaded() {
     document.getElementById("btn-clear").addEventListener("click", OnClearBtn)
     document.getElementById("btn-solve").addEventListener("click", OnSolveBtn)
+    document.getElementById("btn-test").addEventListener("click", OnTestBtn)
 }
 
 document.addEventListener("DOMContentLoaded", OnLoaded)

@@ -3,6 +3,9 @@
   <title>Nonogram solver</title>
   <script src="nonogram.js"></script>
   <style>
+    input[type="number"] {
+        width: 60px;
+    }
     .g {
         height: 15px;
         width: 15px;
@@ -15,12 +18,15 @@
     }
     .colH {
         height: 140px;
+        vertical-align: bottom;
     }
     .colH div {
-        width: 15px;
-        transform: rotate(90deg) translate(-70px, 0px);
+        width: 140px;
+        transform: rotate(90deg) translate(-15px, 140px);
+        transform-origin: bottom right;
         font-family: monospace;
         text-align: right;
+        position: absolute;
     }
     .colH input {
         text-align: right;
@@ -57,6 +63,7 @@
     }
     .x::before {
         content: '╳';
+        position: absolute;
     }
     .x.c1 {
         color: black;
@@ -79,15 +86,21 @@
   </style>
 </head>
 <body>
+  <div id="step1">
   1. <label>Dimension:</label>
   <input id="dim-width" type="number" value="10"> ×
   <input id="dim-height" type="number" value="10">
   <input id="btn-clear" type="button" value="Clear">
+  </div>
 
+  <div id="step2">
   2. <label>Delay</label>
   <input id="delay" type="number" value="1000">ms
   <input id="btn-solve" type="button" value="Solve">
+  </div>
   <hr>
   <table id="tb">
   </table>
+  <hr>
+  <input id="btn-test" type="button" value="Load Test Pattern">
 </body>
