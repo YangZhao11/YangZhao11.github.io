@@ -119,6 +119,7 @@ class UI {
         }
         return {rows, cols}
     }
+
 }
 
 var ui
@@ -130,11 +131,13 @@ function OnClearBtn() {
         return
     }
     ui = new UI(document.getElementById("tb"))
-    if (processID) {clearTimeout(processID)}
     ui.createDOM(width, height)
+    solver = null
+    if (runner) {
+        runner.pause()
+    }
+    runner = null
 
-    process = null
-    processID = null
     let btnSolve = document.getElementById("btn-solve")
     btnSolve.value = "▶"
 }
@@ -284,70 +287,105 @@ class Solver {
     }
 }
 
-var process                     // generator
-var delay                       // delay
 var solver                      // solver object
-var processID                   // id returned by setTimeOut
 
-function runProcess() {
-    let n = process.next()
-    if (!n.done) {
-        let d = delay
-        if (n.value != null) {
-            d *= n.value
+class Runner {
+    constructor(process, delay) {
+        this.process = process
+        this.delay = delay
+        this.processID = null
+    }
+
+    runIt() {
+        let n = this.process.next()
+        if (!n.done) {
+            let d = this.delay
+            if (n.value != null) {
+                d *= n.value
+            }
+            this.processID = setTimeout(this.runIt.bind(this), d)
+        } else {
+            this.processID = null
+            this.process = null
         }
-        processID = setTimeout(runProcess, d)
-    } else {
+    }
+
+    start() {
+        if (!this.running()) {
+            this.processID = setTimeout(this.runIt.bind(this))
+        }
+    }
+
+    pause() {
+        if (this.running()) {
+            clearTImeout(this.processID)
+            this.processID = null
+        }
+    }
+
+    next() {
+        if (this.process.next().done) {
+            this.processID = null
+            this.process = null
+        }
+    }
+
+    finish() {
+        while (!process.next().done) {
+        }
+
         processID = null
         process = null
+    }
 
+    running() {
+        return this.processID != null
     }
 }
 
+var runner
+
 function OnSolveBtn() {
-    if (processID != null) {
-        clearTimeout(processID)
-        processID = null
+    if (runner != null && runner.running()) {
+        runner.pause()
         this.value = "▶"
-    } else if (process != null) {
-        processID = setTimeout(runProcess)
-        this.value = "❙❙"
-    } else {
-        solver = new Solver(ui)
-        process = solver.solve()
-        processID = setTimeout(runProcess)
-        this.value = "❙❙"
+        return
     }
+
+    if (runner == null) {
+        solver = new Solver(ui)
+        runner = new Runner(solver.solve(), delay)
+    }
+
+    runner.start()
+    this.value = "❙❙"
 }
 
 function OnNextBtn() {
-    if (process == null) {
+    if (runner == null) {
         console.log("Start solver first")
         return
     }
-    if (process.next().done) {
-        processID = null
-        process = null
-    }
+    runner.next()
 }
 
 function OnRunAllBtn() {
-    if (process == null) {
+    if (runner == null) {
         console.log("Start solver first")
         return
     }
-    while (!process.next().done) {
-    }
-
-    processID = null
-    process = null
+    runner.finish()
 }
 
+var delay
 const delayValues = [2000, 1000, 500, 100, 10]
 
 function OnDelayChange() {
-    let v = parseInt(document.getElementById("delay").value)
+    const v = parseInt(document.getElementById("delay").value)
     delay = delayValues[v]
+    if (runner != null) {
+        runner.delay = delay
+    }
 }
 
 
