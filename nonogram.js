@@ -20,17 +20,12 @@ class UI {
         this.color = 1
     }
 
-    pushState() {
-        this.color += 1
+    log(str) {
+        console.log(str)
+        // TODO: better messaging
     }
 
-    popState() {
-        let cells = this.tb.getElementsByClassName("c"+this.color)
-        for (c in cells) {
-            c.className = "g"
-        }
-    }
-
+    // setXY set cell (x,y) to state and marked with current color.
     setXY(x,y,state) {
         let cell = document.getElementById("g"+x+"-"+y)
         if (!cell) {
@@ -172,6 +167,7 @@ function OnTestBtn() {
     })
 }
 
+// Slice is a reference to a column or row in the grid.
 class Slice {
     constructor(solver, offset0, step, length) {
         this.solver = solver
@@ -192,11 +188,64 @@ class Slice {
         this.solver.setXY(x,y,val)
     }
 
+    // returns the first position >= start where a hole of size length
+    // is found. If no such hole is found, return -1.
+    findHole(start, length) {
+        let found = 0
+        for (let i = start; i < this.length; i++) {
+            if (this.getX(i) == STATE_X) {
+                found = 0
+            } else {
+                found += 1
+                if (found >= length) {
+                    return i - found + 1
+                }
+            }
+        }
+        return -1
+    }
+
+    stripLength(i) {
+        let val = this.getX(i)
+        let n=0
+        for (;i< this.length; i++) {
+            if (this.getX(i) == val) {
+                n++
+            } else {
+                return n
+            }
+        }
+        return n
+    }
+
+    indexOfNextSolid(start) {
+        for (let i = start; i < this.length; i++) {
+            if (this.getX(i) == STATE_SOLID) {
+                return i
+            }
+        }
+        return -1
+    }
+
     setSegment(i,j,val) {
         for (let n = i; n < j; n++) {
             this.setX(n, val)
         }
     }
+
+    reverse() {
+        return new Slice(solver, this.offset0 + this.step * (this.length-1), -this.step, this.length)
+    }
+}
+
+// returns the last index in arr that's >= bound
+function findLastIndex(arr, bound) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+        if (arr[i] >= bound) {
+            return i
+        }
+    }
+    return -1;
 }
 
 const ROW = 0
@@ -208,8 +257,18 @@ class Solver {
         this.width = ui.width
         this.height = ui.height
         let seg = ui.getSegments()
-        this.rows = seg.rows
-        this.cols = seg.cols
+        this.rows = seg.rows.map(
+            r => ({
+                len: r,
+                lb: r.map(x=>0),
+                ub: r.map(x=>this.width)
+            }))
+        this.cols = seg.cols.map(
+            c => ({
+                len: c,
+                lb: c.map(x=>0),
+                ub: c.map(x=>this.height)
+            }))
         this.g = new Int8Array(this.width * this.height)
         this.dirty = []
         for (let x = 0; x < this.width; x++) {
@@ -267,19 +326,92 @@ class Solver {
         return this.cols[desc.num]
     }
 
-    *solveLine(slice, segments){
-        for (let i = 0; i < slice.length; i++) {
-            if (slice.getX(i) == STATE_EMPTY && Math.random()<0.2) {
-                slice.setX(i, Math.floor(Math.random()*2)+1)
+    // findLeftmostFit returns the leftmost possible position for each
+    // segment as a integer array. Known leftmost position will be
+    // obeied. This fit does not guarentee that all the SOLID cells
+    // are potentially covered. Return false if a fit can not be
+    // found.
+    findLeftmostFit(slice, sLen, lb) {
+        let cursor = 0
+        for (let i = 0; i < sLen.length; i++) {
+            if (lb[i] > cursor) {
+                cursor = lb[i]
+            }
+            // see if we can find a hole at cursor that's big enough.
+            let hole = slice.findHole(cursor, sLen[i])
+            if (hole == -1) {
+                this.ui.log("Can not find hole for segment "+ i)
+                return
+            }
+            while (hole + sLen[i] < slice.length &&
+                   slice.getX(hole + sLen[i]) == STATE_SOLID) {
+                hole += 1
+            }
+            lb[i] = hole
+            cursor = hole + sLen[i] + 1 // 1 for the space between this and next
+        }
+    }
+
+    fitLeftMost(slice, sLen, lb) {
+        this.findLeftmostFit(slice, sLen, lb)
+        let last = sLen.length - 1
+        let cursor = lb[last] + sLen[last] + 1
+        // if there is any SOLID cells that's not covered by this
+        // positioning, we need to move some of the segments to the
+        // right to cover them.
+
+        let nextSolid = slice.indexOfNextSolid(cursor)
+        while (nextSolid != -1) {
+            let stripLen = slice.stripLength(nextSolid)
+            let fittingSegment = findLastIndex(sLen, stripLen)
+            if (fittingSegment == -1) {
+                this.ui.log("No segment long enough to cover "+ stripLen)
+                return
+            }
+            lb[fittingSegment] = nextSolid + stripLen - sLen[fittingSegment]
+            this.findLeftmostFit(slice, sLen, lb)
+            last = sLen.length - 1
+            cursor = lb[last] + sLen[last] + 1
+            nextSolid = slice.indexOfNextSolid(cursor)
+        }
+    }
+
+    *solveLine(slice, rowcol){
+        this.fitLeftMost(slice, rowcol.len, rowcol.lb)
+        this.fitLeftMost(slice.reverse(),
+                         rowcol.len.slice().reverse(), rowcol.ub)
+        // realUB is the real bound on the rightmost position
+        let realUB = rowcol.ub.slice().reverse().map(x=>slice.length - x -1)
+
+        for (let i = 0; i < rowcol.len.length; i++) {
+            let l = rowcol.lb[i]
+            let u = realUB[i]
+            let len = rowcol.len[i]
+            let prevU = -1
+            if (i > 0) {
+                prevU = realUB[i-1]
+            }
+
+            if (l > prevU+1) {
+                slice.setSegment(prevU+1, l, STATE_X)
                 yield
             }
+
+            if (u-len+1 <= l+len-1) {
+                slice.setSegment(u-len+1, l+len, STATE_SOLID)
+                yield
+            }
+        }
+        if (realUB[realUB.length-1]+1 < slice.length) {
+            slice.setSegment(realUB[realUB.length-1]+1, slice.length, STATE_X)
+            yield
         }
     }
 
     *solve() {
         while (this.dirty.length > 0) {
             this.line = this.dirty.pop()
-            console.log("looking at dir"+ this.line.dir+" num"+this.line.num)
+            this.ui.log("looking at dir"+ this.line.dir+" num"+this.line.num)
             let slice = this.getSlice(this.line)
             let segments = this.getSegments(this.line)
             yield* this.solveLine(slice, segments)
@@ -318,7 +450,7 @@ class Runner {
 
     pause() {
         if (this.running()) {
-            clearTImeout(this.processID)
+            clearTimeout(this.processID)
             this.processID = null
         }
     }
