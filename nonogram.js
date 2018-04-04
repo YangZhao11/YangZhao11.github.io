@@ -228,9 +228,14 @@ class Slice {
     }
 
     setSegment(i,j,val) {
+        let changed = 0
         for (let n = i; n < j; n++) {
-            this.setX(n, val)
+            if (this.getX(n) != val) {
+                this.setX(n, val)
+                changed++
+            }
         }
+        return changed
     }
 
     reverse() {
@@ -261,13 +266,13 @@ class Solver {
             r => ({
                 len: r,
                 lb: r.map(x=>0),
-                ub: r.map(x=>this.width)
+                ub: r.map(x=>0)
             }))
         this.cols = seg.cols.map(
             c => ({
                 len: c,
                 lb: c.map(x=>0),
-                ub: c.map(x=>this.height)
+                ub: c.map(x=>0)
             }))
         this.g = new Int8Array(this.width * this.height)
         this.dirty = []
@@ -335,6 +340,7 @@ class Solver {
         let cursor = 0
         for (let i = 0; i < sLen.length; i++) {
             if (lb[i] > cursor) {
+                // todo: we may need to adjust previous position to cover any SOLID cells.
                 cursor = lb[i]
             }
             // see if we can find a hole at cursor that's big enough.
@@ -393,18 +399,21 @@ class Solver {
             }
 
             if (l > prevU+1) {
-                slice.setSegment(prevU+1, l, STATE_X)
-                yield
+                if (slice.setSegment(prevU+1, l, STATE_X) > 0) {
+                    yield
+                }
             }
 
             if (u-len+1 <= l+len-1) {
-                slice.setSegment(u-len+1, l+len, STATE_SOLID)
-                yield
+                if (slice.setSegment(u-len+1, l+len, STATE_SOLID) > 0) {
+                    yield
+                }
             }
         }
         if (realUB[realUB.length-1]+1 < slice.length) {
-            slice.setSegment(realUB[realUB.length-1]+1, slice.length, STATE_X)
-            yield
+            if (slice.setSegment(realUB[realUB.length-1]+1, slice.length, STATE_X) > 0) {
+                yield
+            }
         }
     }
 
@@ -416,6 +425,7 @@ class Solver {
             let segments = this.getSegments(this.line)
             yield* this.solveLine(slice, segments)
         }
+        this.ui.log("done")
     }
 }
 
