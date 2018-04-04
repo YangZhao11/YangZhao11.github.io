@@ -43,6 +43,20 @@ class UI {
         }
     }
 
+    highlightLine(line) {
+        let th = document.getElementById("th-"+line)
+        if (th) {
+            th.classList.add("hl")
+        }
+    }
+
+    unhilightLine(line) {
+        let th = document.getElementById("th-"+line)
+        if (th) {
+            th.classList.remove("hl")
+        }
+    }
+
     createDOM(width, height) {
         let tb = this.tb
         this.width = width
@@ -59,6 +73,7 @@ class UI {
         for (let w = 0; w < width; w++) {
             let th = document.createElement("th")
             th.className = 'colH'
+            th.id = "th-c"+w
             let div = document.createElement("div")
             let colInput = document.createElement("input")
             colInput.type = "text"
@@ -73,6 +88,7 @@ class UI {
             let tr = document.createElement("tr")
             let th = document.createElement("th")
             th.className = 'rowH'
+            th.id = 'th-r' + h
             let rowInput = document.createElement("input")
             rowInput.type = "text"
             rowInput.id = 'r'+h
@@ -253,34 +269,38 @@ function findLastIndex(arr, bound) {
     return -1;
 }
 
-const ROW = 0
-const COLUMN = 1
-
 class Solver {
     constructor(ui) {
         this.ui = ui
         this.width = ui.width
         this.height = ui.height
+        this.g = new Int8Array(this.width * this.height)
+
         let seg = ui.getSegments()
-        this.rows = seg.rows.map(
-            r => ({
+        this.rowcol = new Map()
+        seg.rows.forEach((r, i) => {
+            this.rowcol["r"+i] = {
                 len: r,
                 lb: r.map(x=>0),
-                ub: r.map(x=>0)
-            }))
-        this.cols = seg.cols.map(
-            c => ({
+                ub: r.map(x=>0),
+                slice: new Slice(this, this.width*i, 1, this.width)
+            }
+        })
+        seg.cols.forEach((c, i) => {
+            this.rowcol["c"+i] = {
                 len: c,
                 lb: c.map(x=>0),
-                ub: c.map(x=>0)
-            }))
-        this.g = new Int8Array(this.width * this.height)
+                ub: c.map(x=>0),
+                slice: new Slice(this, i, this.width, this.height)
+            }
+        })
+
         this.dirty = []
         for (let x = 0; x < this.width; x++) {
-            this.dirty.push({dir: COLUMN, num: x})
+            this.dirty.push("c"+x)
         }
         for (let y = 0; y < this.height; y++) {
-            this.dirty.push({dir: ROW, num: y})
+            this.dirty.push("r"+y)
         }
     }
 
@@ -294,41 +314,17 @@ class Solver {
         }
         this.g[x+y*this.width] = val
         this.ui.setXY(x,y,val)
-        if (this.line.dir == ROW) {
-            this.markDirty({dir: COLUMN, num: x})
+        if (this.line.charAt(0) == "r") {
+            this.markDirty("c" + x)
         } else {
-            this.markDirty({dir:ROW, num: y})
+            this.markDirty("r" + y)
         }
     }
 
     markDirty(desc) {
-        for (let i = 0; i < this.dirty.length; i++) {
-            let d = this.dirty[i]
-            if (d.dir == desc.dir && d.num == desc.num) {
-                return
-            }
+        if (this.dirty.indexOf(desc) == -1) {
+            this.dirty.push(desc)
         }
-        this.dirty.push(desc)
-    }
-
-    /**
-     * getSlice takes a description and returns a Slice object
-     * referencing those cells. Description is an object with
-     * dir=ROW|COLUMN and num.
-     *
-     */
-    getSlice(desc) {
-        if (desc.dir == ROW) {
-            return new Slice(this, this.width*desc.num, 1, this.width)
-        }
-        return new Slice(this, desc.num, this.width, this.height)
-    }
-
-    getSegments(desc) {
-        if (desc.dir == ROW) {
-            return this.rows[desc.num]
-        }
-        return this.cols[desc.num]
     }
 
     // findLeftmostFit returns the leftmost possible position for each
@@ -382,7 +378,8 @@ class Solver {
         }
     }
 
-    *solveLine(slice, rowcol){
+    *solveLine(rowcol){
+        let slice = rowcol.slice
         this.fitLeftMost(slice, rowcol.len, rowcol.lb)
         this.fitLeftMost(slice.reverse(),
                          rowcol.len.slice().reverse(), rowcol.ub)
@@ -420,10 +417,10 @@ class Solver {
     *solve() {
         while (this.dirty.length > 0) {
             this.line = this.dirty.pop()
-            this.ui.log("looking at dir"+ this.line.dir+" num"+this.line.num)
-            let slice = this.getSlice(this.line)
-            let segments = this.getSegments(this.line)
-            yield* this.solveLine(slice, segments)
+            this.ui.highlightLine(this.line)
+            let rowcol = this.rowcol[this.line]
+            yield* this.solveLine(rowcol)
+            this.ui.unhilightLine(this.line)
         }
         this.ui.log("done")
     }
