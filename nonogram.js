@@ -206,7 +206,7 @@ class Slice {
 
     // returns the first position >= start where a hole of size length
     // is found. If no such hole is found, return -1.
-    findHole(start, length) {
+    findHoleStartingAt(start, length) {
         let found = 0
         for (let i = start; i < this.length; i++) {
             if (this.getX(i) == STATE_X) {
@@ -234,8 +234,8 @@ class Slice {
         return n
     }
 
-    indexOfNextSolid(start) {
-        for (let i = start; i < this.length; i++) {
+    indexOfNextSolid(start, bound = this.length) {
+        for (let i = start; i < bound; i++) {
             if (this.getX(i) == STATE_SOLID) {
                 return i
             }
@@ -327,23 +327,38 @@ class Solver {
         }
     }
 
-    // findLeftmostFit returns the leftmost possible position for each
-    // segment as a integer array. Known leftmost position will be
-    // obeied. This fit does not guarentee that all the SOLID cells
-    // are potentially covered. Return false if a fit can not be
-    // found.
-    findLeftmostFit(slice, sLen, lb) {
-        let cursor = 0
-        for (let i = 0; i < sLen.length; i++) {
-            if (lb[i] > cursor) {
-                // todo: we may need to adjust previous position to cover any SOLID cells.
-                cursor = lb[i]
+    // returns the leftmost possible position for each segment as a
+    // integer array. Known leftmost position will be obeied. Return
+    // false if a fit can not be found.
+    fitLeftMost(slice, sLen, lb) {
+        let cursor = 0          // cursor tracks a position in slice
+        let i = 0               // i is an index of sLen / lb
+
+        while (cursor < slice.length) {
+            let lBound = i >= sLen.length ? slice.length : lb[i]
+            if (lBound > cursor) {
+                let nextSolid = slice.indexOfNextSolid(cursor, lBound)
+                if (nextSolid == -1) {
+                    cursor = lBound
+                    continue
+                }
+
+                // we need to pull a segment here to cover nextSolid.
+                let stripLen = slice.stripLength(nextSolid)
+                do {
+                    i--
+                } while (i >= 0 && sLen[i] < stripLen)
+                if (i < 0) {
+                    this.ui.log(`Can no segment to cover segment ${nextSolid} (${stripLen})`)
+                    return false
+                }
+                cursor = nextSolid + stripLen - sLen[i]
             }
             // see if we can find a hole at cursor that's big enough.
-            let hole = slice.findHole(cursor, sLen[i])
+            let hole = slice.findHoleStartingAt(cursor, sLen[i])
             if (hole == -1) {
                 this.ui.log("Can not find hole for segment "+ i)
-                return
+                return false
             }
             while (hole + sLen[i] < slice.length &&
                    slice.getX(hole + sLen[i]) == STATE_SOLID) {
@@ -351,38 +366,26 @@ class Solver {
             }
             lb[i] = hole
             cursor = hole + sLen[i] + 1 // 1 for the space between this and next
+            i++
         }
-    }
-
-    fitLeftMost(slice, sLen, lb) {
-        this.findLeftmostFit(slice, sLen, lb)
-        let last = sLen.length - 1
-        let cursor = lb[last] + sLen[last] + 1
-        // if there is any SOLID cells that's not covered by this
-        // positioning, we need to move some of the segments to the
-        // right to cover them.
-
-        let nextSolid = slice.indexOfNextSolid(cursor)
-        while (nextSolid != -1) {
-            let stripLen = slice.stripLength(nextSolid)
-            let fittingSegment = findLastIndex(sLen, stripLen)
-            if (fittingSegment == -1) {
-                this.ui.log("No segment long enough to cover "+ stripLen)
-                return
-            }
-            lb[fittingSegment] = nextSolid + stripLen - sLen[fittingSegment]
-            this.findLeftmostFit(slice, sLen, lb)
-            last = sLen.length - 1
-            cursor = lb[last] + sLen[last] + 1
-            nextSolid = slice.indexOfNextSolid(cursor)
+        if (i < sLen.length) {
+            this.ui.log(`not enough space for segment ${i}`)
+            return false
         }
+        return true
     }
 
     *solveLine(rowcol){
         let slice = rowcol.slice
-        this.fitLeftMost(slice, rowcol.len, rowcol.lb)
-        this.fitLeftMost(slice.reverse(),
-                         rowcol.len.slice().reverse(), rowcol.ub)
+        if (!this.fitLeftMost(slice, rowcol.len, rowcol.lb)) {
+            this.failed = true
+            return
+        }
+        if (!this.fitLeftMost(slice.reverse(),
+                              rowcol.len.slice().reverse(), rowcol.ub)) {
+            this.failed = true
+            return
+        }
         // realUB is the real bound on the rightmost position
         let realUB = rowcol.ub.slice().reverse().map(x=>slice.length - x -1)
 
@@ -390,9 +393,12 @@ class Solver {
             let l = rowcol.lb[i]
             let u = realUB[i]
             let len = rowcol.len[i]
-            let prevU = -1
-            if (i > 0) {
-                prevU = realUB[i-1]
+            let prevU = i>0? realUB[i-1] :-1
+
+            if (l + rowcol.len[i] - 1 > u) {
+                this.ui.log(`not enough space for segment ${i}`)
+                this.failed = true
+                return
             }
 
             if (l > prevU+1) {
@@ -420,6 +426,9 @@ class Solver {
             this.ui.highlightLine(this.line)
             let rowcol = this.rowcol[this.line]
             yield* this.solveLine(rowcol)
+            if (this.failed) {
+                return
+            }
             this.ui.unhilightLine(this.line)
         }
         this.ui.log("done")
