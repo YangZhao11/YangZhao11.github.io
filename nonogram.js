@@ -352,7 +352,13 @@ class Solver {
                     this.ui.log(`Can no segment to cover segment ${nextSolid} (${stripLen})`)
                     return false
                 }
-                cursor = nextSolid + stripLen - sLen[i]
+                // move cursor back to where the pulled segment was.
+                // Then pull the segment to the place where it'll
+                // cover nextSolid. Skip to next round because we may
+                // have exposed a SOLID strip when pulling segment i.
+                cursor = lb[i]
+                lb[i] = nextSolid + stripLen - sLen[i]
+                continue
             }
             // see if we can find a hole at cursor that's big enough.
             let hole = slice.findHoleStartingAt(cursor, sLen[i])
