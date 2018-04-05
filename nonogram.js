@@ -155,31 +155,90 @@ function OnClearBtn() {
 
 
 const presets = {
-    "small": {
+    "TV": {
         "width": "10",
         "height": "10",
-        "rows": ["1 1", "1 1", "1 1 1", "1 2 1", "5",
-                 "5 1", "7", "7", "6", "5 3"],
-        "cols": ["6 1", "3 2", "6", "7", "9", "3",
-                 "1 3", "2 1", "1 1 1", "2 1"]
+        "rows": ["1 1", "1 1", "10", "1 2 2", "3 1",
+                 "1 1 1", "3 1", "4 2", "10", "1 1"],
+        "cols": ["7", "1 1 4", "1 7", "3 2", "1 1",
+                 "1 1", "2 1", "1 1 1", "2 3", "7"]
     },
-    "big": {
+    "Butterfly": {
+        "width": "15",
+        "height": "15",
+        "rows": ["3 1", "5 6", "2 4 1", "2 1 3 1 2", "1 1 3 2 2",
+                 "1 1 2 1 1 2", "1 2 3 2", "2 2 2 4", "1 1 1 1 4", "1 2 4",
+                 "6 1", "3 1 2", "3 1", "2 2 2", "2 3"],
+        "cols": ["1", "5 1", "3 2 1", "3 2 3", "2 1 8",
+                 "2 4 5", "1 3 1 1 1 1", "3 1 1 1", "2 3 1 1 2", "2 1 1 1 1",
+                 "2 3 4 1", "1 1 3 3", "1 4 1", "1 6", "5 1"]
+    },
+    "Santa": {
         "width": "25",
         "height": "25",
-        "rows": ["2 3 14", "2 3 6 4", "4 4 6", "3 4 5", "4 5",
-                 "5 2 1", "6 1 4", "1 4 5", "1 12", "3 2 3 3",
-                 "6 1 1 7", "1 8 1 1 2", "4 1 4 4 4 1", "3 10 1 4", "9 1 2 3",
-                 "3 3 1 2 1 1", "2 1 4 2", "1 7 4", "3 13", "4 7 3",
-                 "4 11", "3 8", "3 7", "1 4 3", "3 3"],
-        "cols": ["4 1 3", "4 2", "2 4", "1 4", "2 3 2 1 1",
-                 "2 4 4 6", "2 2 3 4 1", "5 5", "1 5 2", "3 5 1",
-                 "4 1 1 4", "7 2 2 3", "11 3 4", "4 1 1 3 7", "3 3 1 2 7",
-                 "2 17", "2 4 7", "1 16", "1 1 1 1 5 3", "1 1 7 7",
-                 "5 6 2 3", "10 2 4", "8 3 2 2", "5 2 2 3 2", "1 5 2 2 2"]
+        "rows": ["10", "14", "16", "17", "18",
+                 "2 6", "1 5", "1 1 2", "13 1 1", "2 3 4 1 1",
+                 "14 2 2", "2 2 5 3 1", "1 10 2", "2 4 1", "1 5 7 1",
+                 "2 1 2 1 2", "3 2 4 4 3", "2 4 4 4", "2 4", "2 4",
+                 "2 4", "3 5", "3 5", "4 7", "6 10"],
+        "cols": ["9", "10", "4 4", "3 2", "2 1 1",
+                 "3 2 3 1", "3 4 1 2", "3 1 3 1 1", "4 1 1 1 1 1", "4 1 4 2",
+                 "4 6 2", "5 6 2", "5 6 2", "5 1 3 1 1", "5 1 1 1 1 1",
+                 "5 1 3 1 2 1", "5 5 1 1 1", "5 4 1 1 1", "6 2 3 2", "8 2 1 2",
+                 "7 3 4", "6 2 13", "6 1 10", "4 1 9", "2 8"]
+    },
+    "Bear": {
+        "width": "25",
+        "height": "30",
+        "rows": ["6", "8", "3 4", "2 2 2", "1 1 5 4 3",
+                 "1 1 3 1 1 2 1 1", "5 3 1 2 1 3", "7 1 2 5", "1 1 5 3 8", "3 3 2 3 1 1",
+                 "4 1 1 1", "4 4 2", "1 1 4 2", "1 1 1 1", "1 5 1 1",
+                 "4 2 1 1", "2 2 1 1 1", "4 1 1 1 1", "2 1 1 1 1", "1 2 1 2 2 1 1",
+                 "1 1 3 1 2 1", "2 1 3 3 1", "4 1 2 2 1", "1 7 3 1", "2 3 2",
+                 "11 2", "2 2 4", "2 1 3 7", "2 8 3", "3 2 1 2"],
+        "cols": ["1 4 2", "4 2 2 2 4", "1 2 1 1 2 5 1", "6 1 1 1 2 1 1", "2 2 1 1 1",
+                 "2 3 1 5", "3 2 1 1 1 5", "6 1 1 3 1 2", "9 5 1 1 1 1 1", "3 2 2 1 1 2 1 1 1",
+                 "3 1 3 1 1 2 2 1 1", "2 3 1 1 1 1 2 3 1 1", "2 1 1 1 2 3 2 1 1", "3 2 2 1 1 5 1 2 1", "3 1 1 2 3 1",
+                 "4 4 4 2", "7 1 7 3", "5 4 1 5", "2 1 6", "3 12",
+                 "4", "1 5", "1 3 1", "4 2", "1"]
+    },
+    "Very Hard": {
+        "width": "50",
+        "height": "40",
+        "rows": ["23", "19 6", "8 3", "3 2", "3 7 9 2",
+                 "3 2 4 2 2", "2 2", "1 1", "1 6 2", "2 4 10 2",
+                 "2 7 2 8 1 3", "2 2 10 2 10 1 3", "5 4 4 2 6 2", "2 4 1 2 4 3 2", "2 8 2 6 1 2 2",
+                 "2 1 4 2 3 2 1", "2 1 2 4 7 2 1", "2 3 4 1 2 4 6 2", "4 3 5 4 1 5 2 1 2", "1 4 4 2 8 3 3",
+                 "2 6 2 5 7 3", "2 23 7 3", "1 5 12 2 6 2 2", "1 4 2 2 1 9 2 2", "1 26 4 1",
+                 "1 24 2 2", "1 20 2 3 1", "1 17 2 3 2", "2 5 2 1 1 4 2", "2 5 2 2 1 5 1 2",
+                 "2 22 2 2 3", "2 16 4 3", "2 4 4", "2 1 5 4", "2 2 5 4",
+                 "2 4 4", "2 4", "2 6", "2 8", "16"],
+        "cols": ["5", "8", "3 5 9", "2 1 1 18", "5 2 1 2",
+                 "3 1 2 1 2", "2 2 11 1 1", "2 17 1 1", "2 2 14 2 1", "2 2 12 1 1",
+                 "1 2 2 2 7 1 1", "2 3 2 12 1 1", "2 3 2 1 7 2 1", "2 3 2 2 8 1", "2 3 2 2 8 1",
+                 "2 2 3 2 4 2 1", "2 1 3 5 7 2 1", "2 2 5 13 1", "2 1 2 1 4 4 3 1", "2 1 2 1 2 4 2 2",
+                 "2 1 2 4 2 2", "2 1 1 7 2 1", "2 1 1 2 8 1 2", "2 2 1 2 1 3 2 1 2", "2 1 3 1 1 1 3 2 1 2",
+                 "2 1 2 1 1 3 3 2 2 2", "2 2 1 2 6 2 2 2 2", "2 1 2 2 2 6 2 1 2", "2 1 4 9 2 2 2", "2 1 4 2 8 2 2",
+                 "1 1 5 1 3 2 2 2", "1 1 6 2 3 2 2 2", "1 1 4 2 2 2 2 2 2", "1 1 3 1 2 3 2 2 2", "2 2 3 1 8 2 2",
+                 "2 1 2 1 10 1 2", "2 2 2 2 2 3", "2 2 2 2 5 1 2", "2 2 1 5 2", "2 2 2 3 1",
+                 "2 1 7 2", "3 1 4 2", "3 2 2 2", "4 2 1 3", "3 6 3",
+                 "3 4 3", "2 4", "2 3", "3 4", "6"]
+    }
+
+}
+
+function PopulatePresets() {
+    let preset = document.getElementById("preset")
+    for (p in presets) {
+        v = presets[p]
+        let option = document.createElement("option")
+        option.value = p
+        option.textContent = v.name ? v.name : `${p} (${v.width}x${v.height})`
+        preset.appendChild(option)
     }
 }
 
-function OnTestBtn() {
+function OnPresetBtn() {
     let preset = document.getElementById("preset").value
     let p = presets[preset]
     document.getElementById("dim-width").value = p.width
@@ -395,6 +454,14 @@ class Solver {
 
     *solveLine(rowcol){
         let slice = rowcol.slice
+
+        if (rowcol.len.length == 0) {
+            if (slice.setSegment(0, slice.length, STATE_X) > 0) {
+                yield
+            }
+            return
+        }
+
         if (!this.fitLeftMost(slice, rowcol.len, rowcol.lb)) {
             this.failed = true
             return
@@ -442,6 +509,7 @@ class Solver {
         while (this.dirty.length > 0) {
             this.line = this.dirty.pop()
             this.ui.highlightLine(this.line)
+            yield 0.1
             let rowcol = this.rowcol[this.line]
             yield* this.solveLine(rowcol)
             if (this.failed) {
@@ -556,8 +624,9 @@ function OnDelayChange() {
 
 
 function OnLoaded() {
+    PopulatePresets()
     document.getElementById("btn-clear").addEventListener("click", OnClearBtn)
-    document.getElementById("btn-test").addEventListener("click", OnTestBtn)
+    document.getElementById("btn-preset").addEventListener("click", OnPresetBtn)
     document.getElementById("btn-solve").addEventListener("click", OnSolveBtn)
     document.getElementById("btn-next").addEventListener("click", OnNextBtn)
     document.getElementById("btn-runall").addEventListener("click", OnRunAllBtn)
