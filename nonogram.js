@@ -154,32 +154,44 @@ function OnClearBtn() {
 }
 
 
+const presets = {
+    "small": {
+        "width": "10",
+        "height": "10",
+        "rows": ["1 1", "1 1", "1 1 1", "1 2 1", "5",
+                 "5 1", "7", "7", "6", "5 3"],
+        "cols": ["6 1", "3 2", "6", "7", "9", "3",
+                 "1 3", "2 1", "1 1 1", "2 1"]
+    },
+    "big": {
+        "width": "25",
+        "height": "25",
+        "rows": ["2 3 14", "2 3 6 4", "4 4 6", "3 4 5", "4 5",
+                 "5 2 1", "6 1 4", "1 4 5", "1 12", "3 2 3 3",
+                 "6 1 1 7", "1 8 1 1 2", "4 1 4 4 4 1", "3 10 1 4", "9 1 2 3",
+                 "3 3 1 2 1 1", "2 1 4 2", "1 7 4", "3 13", "4 7 3",
+                 "4 11", "3 8", "3 7", "1 4 3", "3 3"],
+        "cols": ["4 1 3", "4 2", "2 4", "1 4", "2 3 2 1 1",
+                 "2 4 4 6", "2 2 3 4 1", "5 5", "1 5 2", "3 5 1",
+                 "4 1 1 4", "7 2 2 3", "11 3 4", "4 1 1 3 7", "3 3 1 2 7",
+                 "2 17", "2 4 7", "1 16", "1 1 1 1 5 3", "1 1 7 7",
+                 "5 6 2 3", "10 2 4", "8 3 2 2", "5 2 2 3 2", "1 5 2 2 2"]
+    }
+}
+
 function OnTestBtn() {
-    document.getElementById("dim-width").value = "10"
-    document.getElementById("dim-height").value = "10"
+    let preset = document.getElementById("preset").value
+    let p = presets[preset]
+    document.getElementById("dim-width").value = p.width
+    document.getElementById("dim-height").value = p.height
     OnClearBtn()
     setTimeout(function(){
-        document.getElementById("r0").value = "1 1"
-        document.getElementById("r1").value = "1 1"
-        document.getElementById("r2").value = "1 1 1"
-        document.getElementById("r3").value = "1 2 1"
-        document.getElementById("r4").value = "5"
-        document.getElementById("r5").value = "5 1"
-        document.getElementById("r6").value = "7"
-        document.getElementById("r7").value = "7"
-        document.getElementById("r8").value = "6"
-        document.getElementById("r9").value = "5 3"
-
-        document.getElementById("c0").value = "6 1"
-        document.getElementById("c1").value = "3 2"
-        document.getElementById("c2").value = "6"
-        document.getElementById("c3").value = "7"
-        document.getElementById("c4").value = "9"
-        document.getElementById("c5").value = "3"
-        document.getElementById("c6").value = "1 3"
-        document.getElementById("c7").value = "2 1"
-        document.getElementById("c8").value = "1 1 1"
-        document.getElementById("c9").value = "2 1"
+        p.rows.forEach((v, i) => {
+            document.getElementById("r"+i).value = v
+        })
+        p.cols.forEach((v, i) => {
+            document.getElementById("c"+i).value = v
+        })
     })
 }
 
