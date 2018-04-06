@@ -478,27 +478,12 @@ class Solver {
         return true
     }
 
-    *solveLine(rowcol){
+    // for a given row / column, and given bounds on where each
+    // segment can go, infer where we can mark something on the
+    // segment. This does not cover all the potential cases.
+    *inferSegments(rowcol) {
         let slice = rowcol.slice
 
-        // special case for no segments.
-        if (rowcol.len.length == 0) {
-            if (slice.setSegment(0, slice.length, STATE_X) > 0) {
-                yield
-            }
-            return
-        }
-
-        // update left and right bounts
-        if (!this.fitLeftMost(slice, rowcol.len, rowcol.lb)) {
-            this.failed = true
-            return
-        }
-        if (!this.fitLeftMost(slice.reverse(),
-                              rowcol.len.slice().reverse(), rowcol.ub)) {
-            this.failed = true
-            return
-        }
         // realUB is the real bound on the rightmost position
         let realUB = rowcol.ub.slice().reverse().map(x=>slice.length - x -1)
 
@@ -538,6 +523,30 @@ class Solver {
                 yield
             }
         }
+    }
+
+    *solveLine(rowcol) {
+        let slice = rowcol.slice
+
+        // special case for no segments.
+        if (rowcol.len.length == 0) {
+            if (slice.setSegment(0, slice.length, STATE_X) > 0) {
+                yield
+            }
+            return
+        }
+
+        // update left and right bounts
+        if (!this.fitLeftMost(slice, rowcol.len, rowcol.lb)) {
+            this.failed = true
+            return
+        }
+        if (!this.fitLeftMost(slice.reverse(),
+                              rowcol.len.slice().reverse(), rowcol.ub)) {
+            this.failed = true
+            return
+        }
+        yield* this.inferSegments(rowcol)
     }
 
     *solve() {
