@@ -57,6 +57,30 @@ class UI {
         }
     }
 
+    highlightSegment(line, segmentIndex) {
+        let span = document.getElementById(line+"-"+segmentIndex)
+        if (span) {
+            span.classList.remove("dim")
+            span.classList.add("hl")
+        }
+    }
+
+    unhighlightSegment(line, segmentIndex) {
+        let span = document.getElementById(line+"-"+segmentIndex)
+        if (span) {
+            span.classList.remove("dim")
+            span.classList.remove("hl")
+        }
+    }
+
+    dimSegment(line, segmentIndex) {
+        let span = document.getElementById(line+"-"+segmentIndex)
+        if (span) {
+            span.classList.add("dim")
+            span.classList.remove("hl")
+        }
+    }
+
     createDOM(width, height) {
         let tb = this.tb
         this.width = width
@@ -352,16 +376,18 @@ class Solver {
         seg.rows.forEach((r, i) => {
             this.rowcol["r"+i] = {
                 len: r,
-                lb: r.map(x=>0),
-                ub: r.map(x=>0),
+                lb: new Int16Array(r.length),
+                ub: new Int16Array(r.length),
+                done: new Int8Array(r.length),
                 slice: new Slice(this, this.width*i, 1, this.width)
             }
         })
         seg.cols.forEach((c, i) => {
             this.rowcol["c"+i] = {
                 len: c,
-                lb: c.map(x=>0),
-                ub: c.map(x=>0),
+                lb: new Int16Array(c.length),
+                ub: new Int16Array(c.length),
+                done: new Int8Array(c.length),
                 slice: new Slice(this, i, this.width, this.height)
             }
         })
@@ -455,6 +481,7 @@ class Solver {
     *solveLine(rowcol){
         let slice = rowcol.slice
 
+        // special case for no segments.
         if (rowcol.len.length == 0) {
             if (slice.setSegment(0, slice.length, STATE_X) > 0) {
                 yield
@@ -462,6 +489,7 @@ class Solver {
             return
         }
 
+        // update left and right bounts
         if (!this.fitLeftMost(slice, rowcol.len, rowcol.lb)) {
             this.failed = true
             return
@@ -479,6 +507,7 @@ class Solver {
             let u = realUB[i]
             let len = rowcol.len[i]
             let prevU = i>0? realUB[i-1] :-1
+            let done = rowcol.done[i] != 0
 
             if (l + rowcol.len[i] - 1 > u) {
                 this.ui.log(`not enough space for segment ${i}`)
@@ -486,16 +515,22 @@ class Solver {
                 return
             }
 
-            if (l > prevU+1) {
-                if (slice.setSegment(prevU+1, l, STATE_X) > 0) {
-                    yield
-                }
+            if (l > prevU+1 &&
+                slice.setSegment(prevU+1, l, STATE_X) > 0) {
+                yield
             }
 
-            if (u-len+1 <= l+len-1) {
-                if (slice.setSegment(u-len+1, l+len, STATE_SOLID) > 0) {
-                    yield
-                }
+            if (done) { continue }
+            this.ui.highlightSegment(this.line, i)
+            if (u-len+1 <= l+len-1 &&
+                slice.setSegment(u-len+1, l+len, STATE_SOLID) > 0) {
+                yield
+            }
+            if (u-l+1 == len) {
+                rowcol.done[i] = 1
+                this.ui.dimSegment(this.line, i)
+            } else {
+                this.ui.unhighlightSegment(this.line, i)
             }
         }
         if (realUB[realUB.length-1]+1 < slice.length) {
@@ -565,11 +600,9 @@ class Runner {
     }
 
     finish() {
-        while (!process.next().done) {
-        }
-
-        processID = null
-        process = null
+        this.pause()
+        while (!this.process.next().done) {}
+        this.process = null
     }
 
     running() {
