@@ -18,6 +18,10 @@ class UI {
     constructor(tb) {
         this.tb = tb
         this.color = 1
+        this.brush = STATE_SOLID
+        this.mouseDownHandler = this.onMouseDown.bind(this)
+        this.mouseUpHandler = this.onMouseUp.bind(this)
+        this.mouseMoveHandler = this.onMouseMove.bind(this)
     }
 
     log(str) {
@@ -81,6 +85,80 @@ class UI {
         }
     }
 
+    onMouseDown(event) {
+        let id = event.target.id
+        if (id.charAt(0) != "g") {
+            return
+        }
+        this.brush = event.target.classList.contains("set")? STATE_EMPTY:STATE_SOLID
+        this.brushCell(event.target)
+        this.tb.addEventListener("mousemove", this.mouseMoveHandler)
+    }
+
+    onMouseMove(event) {
+        if (event.buttons & 1 == 0) {
+            this.unMouseUp(event)
+            return
+        }
+        this.brushCell(event.target)
+    }
+
+    onMouseUp(event) {
+        this.tb.removeEventListener("mousemove", this.mouseMoveHandler)
+    }
+
+    brushCell(grid) {
+        if (grid.id.charAt(0) != "g") {
+            return
+        }
+        let coord = grid.id.substr(1).split("-").map(x=>parseInt(x))
+        if (this.brush == STATE_EMPTY) {
+            grid.classList.remove("set")
+            grid.classList.remove("c1")
+        } else {
+            grid.classList.add("set")
+            grid.classList.add("c1")
+        }
+        this.updateColInput(coord[0])
+        this.updateRowInput(coord[1])
+    }
+
+    updateColInput(c) {
+        let state = new Int8Array(this.height)
+        for (let r = 0; r < this.height; r++) {
+            let g = document.getElementById("g"+ c + "-" + r)
+            state[r] = g.classList.contains("set")? STATE_SOLID : STATE_EMPTY
+        }
+        document.getElementById("c"+c).value = this.segmentsFromState(state)
+    }
+
+    updateRowInput(r) {
+        let state = new Int8Array(this.width)
+        for (let c = 0; c < this.width; c++) {
+            let g = document.getElementById("g"+ c + "-" + r)
+            state[c] = g.classList.contains("set")? STATE_SOLID : STATE_EMPTY
+        }
+        document.getElementById("r"+r).value = this.segmentsFromState(state)
+    }
+
+    segmentsFromState(state) {
+        let counted = 0
+        let segments = new Array()
+        for (let i = 0; i < state.length; i++) {
+            if (state[i] == STATE_SOLID) {
+                counted++
+            } else if (counted > 0) {
+                segments.push(counted)
+                counted = 0
+            }
+        }
+        if (counted > 0) {
+            segments.push(counted)
+            counted = 0
+        }
+        return segments.join(" ")
+    }
+
     createDOM(width, height) {
         let tb = this.tb
         this.width = width
@@ -126,7 +204,25 @@ class UI {
             }
             tb.appendChild(tr)
         }
+
+        setTimeout(()=>{
+            tb.addEventListener("mousedown", this.mouseDownHandler)
+            tb.addEventListener("mouseup", this.mouseUpHandler)
+        })
     }
+
+    clearDrawing() {
+        this.tb.removeEventListener("mousedown", this.mouseDownHandler)
+        this.tb.removeEventListener("mouseup", this.mouseUpHandler)
+        this.tb.removeEventListener("mousemove", this.mouseMoveHandler)
+
+        Array.from(document.getElementsByClassName("g")).forEach(e=>{
+            e.classList.remove("set")
+            e.classList.remove("c1")
+        })
+    }
+
+
 
     replaceInput(input) {
         let id = input.id
@@ -264,6 +360,9 @@ function PopulatePresets() {
 
 function OnPresetBtn() {
     let preset = document.getElementById("preset").value
+    if (preset == "") {
+        return
+    }
     let p = presets[preset]
     document.getElementById("dim-width").value = p.width
     document.getElementById("dim-height").value = p.height
@@ -629,6 +728,7 @@ function OnSolveBtn() {
     }
 
     if (runner == null) {
+        ui.clearDrawing()
         solver = new Solver(ui)
         runner = new Runner(solver.solve(), delay)
     }
@@ -668,7 +768,7 @@ function OnDelayChange() {
 function OnLoaded() {
     PopulatePresets()
     document.getElementById("btn-clear").addEventListener("click", OnClearBtn)
-    document.getElementById("btn-preset").addEventListener("click", OnPresetBtn)
+    document.getElementById("preset").addEventListener("change", OnPresetBtn)
     document.getElementById("btn-solve").addEventListener("click", OnSolveBtn)
     document.getElementById("btn-next").addEventListener("click", OnNextBtn)
     document.getElementById("btn-runall").addEventListener("click", OnRunAllBtn)
