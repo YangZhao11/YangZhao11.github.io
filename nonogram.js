@@ -90,6 +90,7 @@ class UI {
         if (id.charAt(0) != "g") {
             return
         }
+        event.stopPropagation()
         this.brush = event.target.classList.contains("set")? STATE_EMPTY:STATE_SOLID
         this.brushCell(event.target)
         this.tb.addEventListener("mousemove", this.mouseMoveHandler)
@@ -97,9 +98,10 @@ class UI {
 
     onMouseMove(event) {
         if (event.buttons & 1 == 0) {
-            this.unMouseUp(event)
+            this.onMouseUp(event)
             return
         }
+        event.stopPropagation()
         this.brushCell(event.target)
     }
 
@@ -216,13 +218,11 @@ class UI {
         this.tb.removeEventListener("mouseup", this.mouseUpHandler)
         this.tb.removeEventListener("mousemove", this.mouseMoveHandler)
 
-        Array.from(document.getElementsByClassName("g")).forEach(e=>{
+        for (let e of document.getElementsByClassName("g")) {
             e.classList.remove("set")
             e.classList.remove("c1")
-        })
+        }
     }
-
-
 
     replaceInput(input) {
         let id = input.id
@@ -270,7 +270,8 @@ function OnClearBtn() {
     runner = null
 
     let btnSolve = document.getElementById("btn-solve")
-    btnSolve.value = "▶"
+    btnSolve.className = "play"
+    btnSolve.title = "play"
 }
 
 
@@ -359,97 +360,100 @@ function PopulatePresets() {
 }
 
 function OnPresetBtn() {
-    let preset = document.getElementById("preset").value
+    let preset = document.getElementById("preset").value;
     if (preset == "") {
-        return
+        return;
     }
-    let p = presets[preset]
-    document.getElementById("dim-width").value = p.width
-    document.getElementById("dim-height").value = p.height
-    OnClearBtn()
+    let p = presets[preset];
+    document.getElementById("dim-width").value = p.width;
+    document.getElementById("dim-height").value = p.height;
+    OnClearBtn();
     setTimeout(function(){
         p.rows.forEach((v, i) => {
-            document.getElementById("r"+i).value = v
-        })
+            document.getElementById("r"+i).value = v;
+        });
         p.cols.forEach((v, i) => {
-            document.getElementById("c"+i).value = v
-        })
-    })
+            document.getElementById("c"+i).value = v;
+        });
+    });
 }
 
 // Slice is a reference to a column or row in the grid.
 class Slice {
     constructor(solver, offset0, step, length) {
-        this.solver = solver
-        this.g = solver.g
-        this.offset0 = offset0
-        this.step = step
-        this.length = length
+        this.solver = solver;
+        this.g = solver.g;
+        this.offset0 = offset0;
+        this.step = step;
+        this.length = length;
     }
 
     getX(i) {
-        return this.g[this.offset0+this.step*i]
+        return this.g[this.offset0+this.step*i];
     }
 
     setX(i, val) {
-        const o = this.offset0+this.step*i
-        const x = o % this.solver.width
-        const y = (o-x) / this.solver.width
-        this.solver.setXY(x,y,val)
+        const o = this.offset0+this.step*i;
+        const x = o % this.solver.width;
+        const y = (o-x) / this.solver.width;
+        this.solver.setXY(x,y,val);
     }
 
     // returns the first position >= start where a hole of size length
     // is found. If no such hole is found, return -1.
     findHoleStartingAt(start, length) {
-        let found = 0
+        let found = 0;
         for (let i = start; i < this.length; i++) {
             if (this.getX(i) == STATE_X) {
-                found = 0
+                found = 0;
             } else {
-                found += 1
+                found += 1;
                 if (found >= length) {
-                    return i - found + 1
+                    return i - found + 1;
                 }
             }
         }
-        return -1
+        return -1;
     }
 
+    // returns the length of strip (consecutive same state cells)
+    // starting at position i.
     stripLength(i) {
-        let val = this.getX(i)
-        let n=0
+        let val = this.getX(i);
+        let n=0;
         for (;i< this.length; i++) {
             if (this.getX(i) == val) {
-                n++
+                n++;
             } else {
-                return n
+                return n;
             }
         }
-        return n
+        return n;
     }
 
     indexOfNextSolid(start, bound = this.length) {
         for (let i = start; i < bound; i++) {
             if (this.getX(i) == STATE_SOLID) {
-                return i
+                return i;
             }
         }
-        return -1
+        return -1;
     }
 
+    // setSegment between i and j (exclusive) to state val.
     setSegment(i,j,val) {
-        let changed = 0
+        let changed = 0;
         for (let n = i; n < j; n++) {
             if (this.getX(n) != val) {
-                this.setX(n, val)
-                changed++
+                this.setX(n, val);
+                changed++;
             }
         }
-        return changed
+        return changed;
     }
 
     reverse() {
-        return new Slice(solver, this.offset0 + this.step * (this.length-1), -this.step, this.length)
+        return new Slice(solver, this.offset0 + this.step * (this.length-1), -this.step, this.length);
     }
 }
 
@@ -518,9 +522,11 @@ class Solver {
     }
 
     markDirty(desc) {
-        if (this.dirty.indexOf(desc) == -1) {
-            this.dirty.push(desc)
+        let i = this.dirty.indexOf(desc)
+        if (i != -1) {
+            this.dirty.splice(i, 1)
         }
+        this.dirty.push(desc)
     }
 
     // returns the leftmost possible position for each segment as a
@@ -581,51 +587,117 @@ class Solver {
     // segment can go, infer where we can mark something on the
     // segment. This does not cover all the potential cases.
     *inferSegments(rowcol) {
-        let slice = rowcol.slice
+        let slice = rowcol.slice;
 
-        // realUB is the real bound on the rightmost position
-        let realUB = rowcol.ub.slice().reverse().map(x=>slice.length - x -1)
+        let lb = rowcol.lb;
+        // ub is the real bound on the rightmost position. rowcol.ub
+        // counts from the right (for both segments, and slice), so we
+        // need to flip both.
+        let ub = rowcol.ub.slice().reverse().map(x=>slice.length - x -1);
 
-        for (let i = 0; i < rowcol.len.length; i++) {
-            let l = rowcol.lb[i]
-            let u = realUB[i]
-            let len = rowcol.len[i]
-            let prevU = i>0? realUB[i-1] :-1
-            let done = rowcol.done[i] != 0
+        for (let i = 0; i < lb.length; i++) {
+            let l = lb[i];
+            let u = ub[i];
+            let len = rowcol.len[i];
+            let prevU = i>0? ub[i-1] : -1;
+            let done = rowcol.done[i] != 0;
 
-            if (l + rowcol.len[i] - 1 > u) {
-                this.ui.log(`not enough space for segment ${i}`)
-                this.failed = true
-                return
+            if (l + len - 1 > u) {
+                this.ui.log(`not enough space for segment ${i}`);
+                this.failed = true;
+                return;
             }
 
             if (l > prevU+1 &&
                 slice.setSegment(prevU+1, l, STATE_X) > 0) {
-                yield
+                yield;
             }
 
             if (done) { continue }
-            this.ui.highlightSegment(this.line, i)
+            this.ui.highlightSegment(this.line, i);
             if (u-len+1 <= l+len-1 &&
                 slice.setSegment(u-len+1, l+len, STATE_SOLID) > 0) {
-                yield
+                yield;
             }
             if (u-l+1 == len) {
-                rowcol.done[i] = 1
-                this.ui.dimSegment(this.line, i)
+                rowcol.done[i] = 1;
+                this.ui.dimSegment(this.line, i);
             } else {
-                this.ui.unhighlightSegment(this.line, i)
+                this.ui.unhighlightSegment(this.line, i);
             }
         }
-        if (realUB[realUB.length-1]+1 < slice.length) {
-            if (slice.setSegment(realUB[realUB.length-1]+1, slice.length, STATE_X) > 0) {
-                yield
+        if (ub[ub.length-1]+1 < slice.length &&
+            slice.setSegment(ub[ub.length-1]+1, slice.length, STATE_X) > 0) {
+            yield;
+        }
+    }
+
+    // returns a list of segment indexes that lb <= start and ub >= end
+    collidingSegments(lb, ub, start, end) {
+        let result = [];
+        for (let i = 0; i < lb.length; i++) {
+            if (lb[i] <= start && ub[i] >= end) {
+                result.push(i);
+            }
+        }
+        return result;
+    }
+
+    *inferHoles(rowcol) {
+        let slice = rowcol.slice;
+        let lb = rowcol.lb;
+        let ub = rowcol.ub.slice().reverse().map(x=>slice.length - x -1);
+        let len = rowcol.len;
+        let stripLen = 0;
+
+        for (let i = 0; i < slice.length; i += stripLen) {
+            stripLen = slice.stripLength(i);
+            // this logic is never needed for slices at the edges
+            if (i == 0 || i+stripLen == slice.length) {
+                continue;
+            }
+
+            if (slice.getX(i) == STATE_EMPTY) {
+                if (slice.getX(i-1) != STATE_X ||
+                    slice.getX(i+stripLen) != STATE_X)  {
+                    continue;
+                }
+                // find holes that's smaller than all potential
+                // segments, and fill them with X.
+                let seg = this.collidingSegments(lb, ub, i, i+stripLen-1);
+                if (seg.length == 0) {continue;}
+                let minLen = seg.reduce(
+                    (m, i)=> m <= len[i]?m:len[i], len[seg[0]]);
+                if (minLen <= stripLen) {
+                    continue;
+                }
+                seg.forEach(i=>ui.highlightSegment(this.line, i));
+                if (slice.setSegment(i, i+stripLen, STATE_X) > 0) {
+                    yield;
+                }
+                seg.forEach(i=>ui.unhighlightSegment(this.line, i));
+            } else if (slice.getX(i) == STATE_SOLID) {
+                let seg = this.collidingSegments(lb, ub, i, i+stripLen-1);
+                if (seg.length == 0) {continue;}
+                let maxLen = seg.reduce(
+                    (m, i)=> m <= len[i]? len[i]:m, len[seg[0]]
+                )
+                if (maxLen != stripLen) {
+                    continue
+                }
+                seg.forEach(i=>ui.highlightSegment(this.line, i));
+                if (slice.setSegment(i-1, i, STATE_X) +
+                    slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
+                    yield;
+                }
+                seg.forEach(i=>ui.unhighlightSegment(this.line, i));
             }
         }
     }
 
+
     *solveLine(rowcol) {
-        let slice = rowcol.slice
+        let slice = rowcol.slice;
 
         // special case for no segments.
         if (rowcol.len.length == 0) {
@@ -646,6 +718,7 @@ class Solver {
             return
         }
         yield* this.inferSegments(rowcol)
+        yield* this.inferHoles(rowcol)
     }
 
     *solve() {
@@ -723,7 +796,8 @@ var runner
 function OnSolveBtn() {
     if (runner != null && runner.running()) {
         runner.pause()
-        this.value = "▶"
+        this.className = "play"
+        this.title = "play"
         return
     }
 
@@ -734,7 +808,8 @@ function OnSolveBtn() {
     }
 
     runner.start()
-    this.value = "❙❙"
+    this.className = "pause"
+    this.title = "pause"
 }
 
 function OnNextBtn() {

@@ -104,7 +104,26 @@
         margin-top: 5px;
     }
     #controls input[type="button"] {
+        background-color: #F8F8F8;
         width: 35px;
+        height: 20px;
+        border-radius: 5px;
+    }
+    .play {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M3 2l10 6-10 6z"/></svg>')
+    }
+    .pause {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M2 2h5v12H2zm7 0h5v12H9z"/></svg>')
+    }
+    .arrow-right {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M15.5 8L8 .5V5H0v6h8v4.5z"/></svg>')
+    }
+    .last {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M14 2v12h-2V8.5l-5 5v-5l-5 5v-11l5 5v-5l5 5V2z"/></svg>')
+    }
+    .play, .pause, .arrow-right, .last {
+        background-repeat: no-repeat;
+        background-position: center;
     }
   </style>
 </head>
@@ -115,7 +134,7 @@
   <input id="dim-height" type="number" value="10">
   <input id="btn-clear" type="button" value="Create Empty Grid">
 
-  Or: <label>Load:
+  Or, <label>load
     <select id="preset">
       <option value="" >-- choose preset --</option>
     </select>
@@ -124,15 +143,15 @@
 
   <hr>
   <div id="step2">
-    2. Fill-in row/column segments below.
+    2. Fill-in row/column segments below, or draw on the grid.
   </div>
   <table id="tb">
   </table>
 
   <div id="controls">
-  <input id="btn-solve" type="button" value="▶">
-  <input id="btn-next" type="button" value="➡">
-  <input id="btn-runall" type="button" value="▶▶❙">
+  <input id="btn-solve" type="button" class="play" title="play">
+  <input id="btn-next" type="button" class="arrow-right" title="next">
+  <input id="btn-runall" type="button" class="last" title="finish">
 
   <label style="margin-left:20px">
     Speed:<input id="delay" type="range" min="0" max="4" value="1" >
