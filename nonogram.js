@@ -89,6 +89,27 @@ class UI {
         }
     }
 
+    highlightCell(x,y) {
+        let g = document.getElementById("g"+x+"-"+y)
+        if (g) {
+            g.classList.add("hl")
+        }
+    }
+
+    unhighlightCell(x,y) {
+        let g = document.getElementById("g"+x+"-"+y)
+        if (g) {
+            g.classList.remove("hl")
+        }
+    }
+
+    clearColor() {
+        let c = document.getElementsByClassName("c" + this.color)
+        while (c.length > 0) {
+            c[0].className = "g"
+        }
+    }
+
     onMouseDown(event) {
         let id = event.target.id
         if (id.charAt(0) != "g") {
@@ -570,11 +591,10 @@ class Line {
                 slice.setSegment(u-len+1, l+len, STATE_SOLID) > 0) {
                 yield;
             }
+            this.solver.ui.unhighlightSegment(this.name, i);
             if (u-l+1 == len) {
                 this.done[i] = 1;
                 this.solver.ui.dimSegment(this.name, i);
-            } else {
-                this.solver.ui.unhighlightSegment(this.name, i);
             }
         }
         if (ub[ub.length-1]+1 < slice.length &&
@@ -628,11 +648,11 @@ class Line {
                 if (minLen <= stripLen) {
                     continue;
                 }
-                seg.forEach(i=>ui.highlightSegment(this.lineName, i));
+                seg.forEach(i=>ui.highlightSegment(this.name, i));
                 if (slice.setSegment(i, i+stripLen, STATE_X) > 0) {
                     yield;
                 }
-                seg.forEach(i=>ui.unhighlightSegment(this.lineName, i));
+                seg.forEach(i=>ui.unhighlightSegment(this.name, i));
             } else if (slice.getX(i) == STATE_SOLID) {
                 let seg = this.collidingSegments(lb, ub, i, i+stripLen-1);
                 if (seg.length == 0) {continue;}
@@ -645,17 +665,17 @@ class Line {
                 if (maxLen != stripLen) {
                     continue;
                 }
-                seg.forEach(i=>ui.highlightSegment(this.lineName, i));
+                seg.forEach(i=>ui.highlightSegment(this.name, i));
                 if (slice.setSegment(i-1, i, STATE_X) +
                     slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
                     yield;
                 }
-                seg.forEach(i=>ui.unhighlightSegment(this.lineName, i));
+                seg.forEach(i=>ui.unhighlightSegment(this.name, i));
             }
         }
     }
 
-    *solve() {
+    *infer() {
         let slice = this.slice;
 
         // special case for no segments.
@@ -677,6 +697,24 @@ class Line {
         yield* this.inferSegments()
         yield* this.inferStrips()
     }
+
+    // returns an object that can be used later to recover the current
+    // state.
+    getState() {
+        return {
+            lb: this.lb.slice(),
+            ub: this.ub.slice(),
+            done: this.done.slice()
+        }
+    }
+
+    // recover state to a previously stored one. The state object can
+    // be used only once.
+    setState(state) {
+        this.lb = state.lb
+        this.ub = state.ub
+        this.done = state.done
+    }
 }
 
 class Solver {
@@ -689,11 +727,13 @@ class Solver {
         let seg = ui.getSegments()
         this.lines = new Map()
         seg.rows.forEach((r, i) => {
-            this.lines["r"+i] = new Line(this, "r"+i, r)
+            this.lines.set("r"+i, new Line(this, "r"+i, r))
         })
         seg.cols.forEach((c, i) => {
-            this.lines["c"+i] = new Line(this, "c"+i, c)
+            this.lines.set("c"+i, new Line(this, "c"+i, c))
         })
+
+        this.states = []         // pushed states for DPS search
 
         this.dirty = []
         for (let x = 0; x < this.width; x++) {
@@ -717,37 +757,123 @@ class Solver {
         if (val == this.getXY(x,y)) {
             return
         }
+        if (this.getXY(x,y) != STATE_EMPTY) {
+            this.fail(`Inconsistent value at (${x},${y})`)
+            return
+        }
         this.g[x+y*this.width] = val
         this.ui.setXY(x,y,val)
-        if (this.lineName.charAt(0) == "r") {
-            this.markDirty("c" + x)
-        } else {
+        if (this.lineName.charAt(0) != "r") {
             this.markDirty("r" + y)
+        }
+        if (this.lineName.charAt(0) != "c") {
+            this.markDirty("c" + x)
         }
     }
 
-    markDirty(desc) {
-        let i = this.dirty.indexOf(desc)
+    markDirty(lineName) {
+        let i = this.dirty.indexOf(lineName)
         if (i != -1) {
             this.dirty.splice(i, 1)
         }
-        this.dirty.push(desc)
+        this.dirty.push(lineName)
     }
 
+    pushState() {
+        let state = {
+            g: this.g.slice(),
+            lines: new Map(),
+            guessed: this.guessed
+        }
+        this.lines.forEach((v, key) => {
+            state.lines.set(key, v.getState())
+        })
+        this.states.push(state)
+        this.ui.color++
+    }
 
-    *solve() {
+    popState() {
+        let state = this.states.pop()
+        this.g = state.g
+        this.guessed = state.guessed
+        this.lines.forEach((line, key) => {
+            line.setState(state.lines.get(key))
+            line.slice.g = this.g
+            line.done.forEach((done, i) => {
+                if (done != 0) {
+                    this.ui.dimSegment(line.name, i)
+                } else {
+                    this.ui.undimSegment(line.name, i)
+                }
+            })
+        })
+        this.dirty = [] // this is not saved, but should always be empty
+        this.ui.clearColor()
+        this.ui.color--
+    }
+
+    // make inference on lines until all lines are checked.
+    *infer() {
         while (this.dirty.length > 0) {
             this.lineName = this.dirty.pop()
             this.ui.highlightLine(this.lineName)
             yield 0.1
-            let line = this.lines[this.lineName]
-            yield* line.solve()
+            let line = this.lines.get(this.lineName)
+            yield* line.infer()
+            this.ui.unhilightLine(this.lineName)
+            this.lineName = ""
             if (this.failed) {
                 return
             }
-            this.ui.unhilightLine(this.lineName)
         }
-        this.ui.log("done")
+    }
+
+    // picks an unwritten cell and make a guess. Returs object like
+    // {x,y,val}. Returns null if everything has been filled.
+    guess() {
+        // do the stupid thing to find the first un-filled cell.
+        for (let x = 0; x < this.width; x++) {
+            for (let y = 0; y < this.height; y++) {
+                if (this.getXY(x,y) == STATE_EMPTY) {
+                    return {
+                        x,y,
+                        val: STATE_SOLID
+                    }
+                }
+            }
+        }
+    }
+
+    *solve() {
+        while(true) {
+            yield* this.infer()
+            if (this.failed) {
+                if (this.states.length == 0) {
+                    this.fail("No solution found")
+                    return
+                }
+                this.failed = false
+                this.popState()
+                let g = this.guessed
+                this.setXY(g.x, g.y, g.val == STATE_SOLID? STATE_X : STATE_SOLID)
+                this.ui.highlightCell(g.x, g.y)
+                yield
+                this.ui.unhighlightCell(g.x, g.y)
+                this.guessed = null
+            } else {
+                let g = this.guess()
+                if (g == null) {
+                    this.ui.log("done")
+                    return
+                }
+                this.guessed = g
+                this.pushState()
+                this.setXY(g.x, g.y, g.val)
+                this.ui.highlightCell(g.x,g.y)
+                yield
+                this.ui.unhighlightCell(g.x,g.y)
+            }
+        }
     }
 }
 
@@ -807,6 +933,14 @@ class Runner {
 
 var runner
 
+function requireRunner() {
+    if (runner == null) {
+        ui.clearDrawing()
+        solver = new Solver(ui)
+        runner = new Runner(solver.solve(), delay)
+    }
+}
+
 function OnSolveBtn() {
     if (runner != null && runner.running()) {
         runner.pause()
@@ -815,11 +949,7 @@ function OnSolveBtn() {
         return
     }
 
-    if (runner == null) {
-        ui.clearDrawing()
-        solver = new Solver(ui)
-        runner = new Runner(solver.solve(), delay)
-    }
+    requireRunner()
 
     runner.start()
     this.className = "pause"
@@ -827,18 +957,12 @@ function OnSolveBtn() {
 }
 
 function OnNextBtn() {
-    if (runner == null) {
-        console.log("Start solver first")
-        return
-    }
+    requireRunner()
     runner.next()
 }
 
 function OnRunAllBtn() {
-    if (runner == null) {
-        console.log("Start solver first")
-        return
-    }
+    requireRunner()
     runner.finish()
 }
 
