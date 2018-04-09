@@ -675,7 +675,7 @@ class Line {
             return
         }
         yield* this.inferSegments()
-        yield* this.inferHoles()
+        yield* this.inferStrips()
     }
 }
 
