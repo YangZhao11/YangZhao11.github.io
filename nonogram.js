@@ -64,7 +64,6 @@ class UI {
     highlightSegment(line, segmentIndex) {
         let span = document.getElementById(line+"-"+segmentIndex)
         if (span) {
-            span.classList.remove("dim")
             span.classList.add("hl")
         }
     }
@@ -72,7 +71,6 @@ class UI {
     unhighlightSegment(line, segmentIndex) {
         let span = document.getElementById(line+"-"+segmentIndex)
         if (span) {
-            span.classList.remove("dim")
             span.classList.remove("hl")
         }
     }
@@ -81,7 +79,13 @@ class UI {
         let span = document.getElementById(line+"-"+segmentIndex)
         if (span) {
             span.classList.add("dim")
-            span.classList.remove("hl")
+        }
+    }
+
+    undimSegment(line, segmentIndex) {
+        let span = document.getElementById(line+"-"+segmentIndex)
+        if (span) {
+            span.classList.remove("dim")
         }
     }
 
@@ -457,77 +461,25 @@ class Slice {
     }
 }
 
-// returns the last index in arr that's >= bound
-function findLastIndex(arr, bound) {
-    for (let i = arr.length - 1; i >= 0; i--) {
-        if (arr[i] >= bound) {
-            return i
-        }
-    }
-    return -1;
-}
-
-class Solver {
-    constructor(ui) {
-        this.ui = ui
-        this.width = ui.width
-        this.height = ui.height
-        this.g = new Int8Array(this.width * this.height)
-
-        let seg = ui.getSegments()
-        this.rowcol = new Map()
-        seg.rows.forEach((r, i) => {
-            this.rowcol["r"+i] = {
-                len: r,
-                lb: new Int16Array(r.length),
-                ub: new Int16Array(r.length),
-                done: new Int8Array(r.length),
-                slice: new Slice(this, this.width*i, 1, this.width)
-            }
-        })
-        seg.cols.forEach((c, i) => {
-            this.rowcol["c"+i] = {
-                len: c,
-                lb: new Int16Array(c.length),
-                ub: new Int16Array(c.length),
-                done: new Int8Array(c.length),
-                slice: new Slice(this, i, this.width, this.height)
-            }
-        })
-
-        this.dirty = []
-        for (let x = 0; x < this.width; x++) {
-            this.dirty.push("c"+x)
-        }
-        for (let y = 0; y < this.height; y++) {
-            this.dirty.push("r"+y)
-        }
-    }
-
-    getXY(x,y) {
-        return this.g[x + y*this.width]
-    }
-
-    setXY(x,y, val) {
-        if (val == this.getXY(x,y)) {
-            return
-        }
-        this.g[x+y*this.width] = val
-        this.ui.setXY(x,y,val)
-        if (this.line.charAt(0) == "r") {
-            this.markDirty("c" + x)
+// Line contains all the information relating to a row / column,
+// including the slice (of cells of STATE_?), segment constraints and
+// known possible positions.
+class Line {
+    constructor(solver, name, len) {
+        this.solver = solver
+        this.name = name
+        this.len = len
+        this.lb = new Int16Array(len.length)
+        this.ub = new Int16Array(len.length)
+        this.done = new Int8Array(len.length)
+        let i = parseInt(name.substr(1))
+        if (name.charAt(0) == 'r') {
+            this.slice = new Slice(solver, solver.width*i, 1, solver.width)
         } else {
-            this.markDirty("r" + y)
+            this.slice = new Slice(solver, i, solver.width, solver.height)
         }
     }
 
-    markDirty(desc) {
-        let i = this.dirty.indexOf(desc)
-        if (i != -1) {
-            this.dirty.splice(i, 1)
-        }
-        this.dirty.push(desc)
-    }
 
     // returns the leftmost possible position for each segment as a
     // integer array. Known leftmost position will be obeied. Return
@@ -551,7 +503,7 @@ class Solver {
                     i--
                 } while (i >= 0 && sLen[i] < stripLen)
                 if (i < 0) {
-                    this.ui.log(`Can no segment to cover segment ${nextSolid} (${stripLen})`)
+                    this.solver.fail(`Can no segment to cover segment ${nextSolid} (${stripLen})`)
                     return false
                 }
                 // move cursor back to where the pulled segment was.
@@ -565,7 +517,7 @@ class Solver {
             // see if we can find a hole at cursor that's big enough.
             let hole = slice.findHoleStartingAt(cursor, sLen[i])
             if (hole == -1) {
-                this.ui.log("Can not find hole for segment "+ i)
+                this.solver.fail("Can not find hole for segment "+ i)
                 return false
             }
             while (hole + sLen[i] < slice.length &&
@@ -577,34 +529,33 @@ class Solver {
             i++
         }
         if (i < sLen.length) {
-            this.ui.log(`not enough space for segment ${i}`)
+            this.solver.fail(`not enough space for segment ${i}`)
             return false
         }
         return true
     }
 
-    // for a given row / column, and given bounds on where each
-    // segment can go, infer where we can mark something on the
-    // segment. This does not cover all the potential cases.
-    *inferSegments(rowcol) {
-        let slice = rowcol.slice;
+    // After deciding lb and ub, infer where we can mark something on
+    // the (constraint) segment. This does not cover all the potential
+    // cases.
+    *inferSegments() {
+        let slice = this.slice;
 
-        let lb = rowcol.lb;
-        // ub is the real bound on the rightmost position. rowcol.ub
+        let lb = this.lb;
+        // ub is the real bound on the rightmost position. this.ub
         // counts from the right (for both segments, and slice), so we
         // need to flip both.
-        let ub = rowcol.ub.slice().reverse().map(x=>slice.length - x -1);
+        let ub = this.ub.slice().reverse().map(x=>slice.length - x -1);
 
         for (let i = 0; i < lb.length; i++) {
             let l = lb[i];
             let u = ub[i];
-            let len = rowcol.len[i];
+            let len = this.len[i];
             let prevU = i>0? ub[i-1] : -1;
-            let done = rowcol.done[i] != 0;
+            let done = this.done[i] != 0;
 
             if (l + len - 1 > u) {
-                this.ui.log(`not enough space for segment ${i}`);
-                this.failed = true;
+                this.solver.fail(`not enough space for segment ${i}`);
                 return;
             }
 
@@ -614,16 +565,16 @@ class Solver {
             }
 
             if (done) { continue }
-            this.ui.highlightSegment(this.line, i);
+            this.solver.ui.highlightSegment(this.name, i);
             if (u-len+1 <= l+len-1 &&
                 slice.setSegment(u-len+1, l+len, STATE_SOLID) > 0) {
                 yield;
             }
             if (u-l+1 == len) {
-                rowcol.done[i] = 1;
-                this.ui.dimSegment(this.line, i);
+                this.done[i] = 1;
+                this.solver.ui.dimSegment(this.name, i);
             } else {
-                this.ui.unhighlightSegment(this.line, i);
+                this.solver.ui.unhighlightSegment(this.name, i);
             }
         }
         if (ub[ub.length-1]+1 < slice.length &&
@@ -643,11 +594,17 @@ class Solver {
         return result;
     }
 
-    *inferHoles(rowcol) {
-        let slice = rowcol.slice;
-        let lb = rowcol.lb;
-        let ub = rowcol.ub.slice().reverse().map(x=>slice.length - x -1);
-        let len = rowcol.len;
+    // Make inference for strips (consecutive cells with same state).
+    // Cases include:
+    //
+    // 1. "X X" can be marked "XXX" if all possible segments >= 2
+    // 2. "?SSS?" can be marked "XSSSX" if all possible segments =3.
+    // 3. (TODO) "X SS " can be marked "X SSS" if all potential segments >= 4.
+    *inferStrips() {
+        let slice = this.slice;
+        let lb = this.lb;
+        let ub = this.ub.slice().reverse().map(x=>slice.length - x -1);
+        let len = this.len;
         let stripLen = 0;
 
         for (let i = 0; i < slice.length; i += stripLen) {
@@ -671,36 +628,38 @@ class Solver {
                 if (minLen <= stripLen) {
                     continue;
                 }
-                seg.forEach(i=>ui.highlightSegment(this.line, i));
+                seg.forEach(i=>ui.highlightSegment(this.lineName, i));
                 if (slice.setSegment(i, i+stripLen, STATE_X) > 0) {
                     yield;
                 }
-                seg.forEach(i=>ui.unhighlightSegment(this.line, i));
+                seg.forEach(i=>ui.unhighlightSegment(this.lineName, i));
             } else if (slice.getX(i) == STATE_SOLID) {
                 let seg = this.collidingSegments(lb, ub, i, i+stripLen-1);
                 if (seg.length == 0) {continue;}
+                if (seg.length == 1 && this.done[seg[0]] != 0) {
+                    continue;
+                }
                 let maxLen = seg.reduce(
                     (m, i)=> m <= len[i]? len[i]:m, len[seg[0]]
-                )
+                );
                 if (maxLen != stripLen) {
-                    continue
+                    continue;
                 }
-                seg.forEach(i=>ui.highlightSegment(this.line, i));
+                seg.forEach(i=>ui.highlightSegment(this.lineName, i));
                 if (slice.setSegment(i-1, i, STATE_X) +
                     slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
                     yield;
                 }
-                seg.forEach(i=>ui.unhighlightSegment(this.line, i));
+                seg.forEach(i=>ui.unhighlightSegment(this.lineName, i));
             }
         }
     }
 
-
-    *solveLine(rowcol) {
-        let slice = rowcol.slice;
+    *solve() {
+        let slice = this.slice;
 
         // special case for no segments.
-        if (rowcol.len.length == 0) {
+        if (this.len.length == 0) {
             if (slice.setSegment(0, slice.length, STATE_X) > 0) {
                 yield
             }
@@ -708,30 +667,85 @@ class Solver {
         }
 
         // update left and right bounts
-        if (!this.fitLeftMost(slice, rowcol.len, rowcol.lb)) {
-            this.failed = true
+        if (!this.fitLeftMost(slice, this.len, this.lb)) {
             return
         }
         if (!this.fitLeftMost(slice.reverse(),
-                              rowcol.len.slice().reverse(), rowcol.ub)) {
-            this.failed = true
+                              this.len.slice().reverse(), this.ub)) {
             return
         }
-        yield* this.inferSegments(rowcol)
-        yield* this.inferHoles(rowcol)
+        yield* this.inferSegments()
+        yield* this.inferHoles()
     }
+}
+
+class Solver {
+    constructor(ui) {
+        this.ui = ui
+        this.width = ui.width
+        this.height = ui.height
+        this.g = new Int8Array(this.width * this.height)
+
+        let seg = ui.getSegments()
+        this.lines = new Map()
+        seg.rows.forEach((r, i) => {
+            this.lines["r"+i] = new Line(this, "r"+i, r)
+        })
+        seg.cols.forEach((c, i) => {
+            this.lines["c"+i] = new Line(this, "c"+i, c)
+        })
+
+        this.dirty = []
+        for (let x = 0; x < this.width; x++) {
+            this.dirty.push("c"+x)
+        }
+        for (let y = 0; y < this.height; y++) {
+            this.dirty.push("r"+y)
+        }
+    }
+
+    fail(message) {
+        this.ui.log(message)
+        this.failed = true
+    }
+
+    getXY(x,y) {
+        return this.g[x + y*this.width]
+    }
+
+    setXY(x,y, val) {
+        if (val == this.getXY(x,y)) {
+            return
+        }
+        this.g[x+y*this.width] = val
+        this.ui.setXY(x,y,val)
+        if (this.lineName.charAt(0) == "r") {
+            this.markDirty("c" + x)
+        } else {
+            this.markDirty("r" + y)
+        }
+    }
+
+    markDirty(desc) {
+        let i = this.dirty.indexOf(desc)
+        if (i != -1) {
+            this.dirty.splice(i, 1)
+        }
+        this.dirty.push(desc)
+    }
+
 
     *solve() {
         while (this.dirty.length > 0) {
-            this.line = this.dirty.pop()
-            this.ui.highlightLine(this.line)
+            this.lineName = this.dirty.pop()
+            this.ui.highlightLine(this.lineName)
             yield 0.1
-            let rowcol = this.rowcol[this.line]
-            yield* this.solveLine(rowcol)
+            let line = this.lines[this.lineName]
+            yield* line.solve()
             if (this.failed) {
                 return
             }
-            this.ui.unhilightLine(this.line)
+            this.ui.unhilightLine(this.lineName)
         }
         this.ui.log("done")
     }
