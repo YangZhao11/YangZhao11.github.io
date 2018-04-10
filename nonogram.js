@@ -362,7 +362,7 @@ const presets = {
         "cols": ["5", "8", "3 5 9", "2 1 1 18", "5 2 1 2",
                  "3 1 2 1 2", "2 2 11 1 1", "2 17 1 1", "2 2 14 2 1", "2 2 12 1 1",
                  "1 2 2 2 7 1 1", "2 3 2 12 1 1", "2 3 2 1 7 2 1", "2 3 2 2 8 1", "2 3 2 2 8 1",
-                 "2 2 3 2 4 2 1", "2 1 3 5 7 2 1", "2 2 5 13 1", "2 1 2 1 4 4 3 1", "2 1 2 1 2 4 2 2",
+                 "2 2 3 2 4 2 1", "2 1 3 5 7 2 1", "2 2 5 13 1", "2 1 2 1 4 4 3 2", "2 1 2 1 2 4 2 2",
                  "2 1 2 4 2 2", "2 1 1 7 2 1", "2 1 1 2 8 1 2", "2 2 1 2 1 3 2 1 2", "2 1 3 1 1 1 3 2 1 2",
                  "2 1 2 1 1 3 3 2 2 2", "2 2 1 2 6 2 2 2 2", "2 1 2 2 2 6 2 1 2", "2 1 4 9 2 2 2", "2 1 4 2 8 2 2",
                  "1 1 5 1 3 2 2 2", "1 1 6 2 3 2 2 2", "1 1 4 2 2 2 2 2 2", "1 1 3 1 2 3 2 2 2", "2 2 3 1 8 2 2",
@@ -499,6 +499,9 @@ class Line {
         } else {
             this.slice = new Slice(solver, i, solver.width, solver.height)
         }
+
+        let sum = len.reduce((x,y)=>x+y, 0)
+        this.wiggleRoom = this.slice.length - sum
     }
 
 
@@ -831,17 +834,53 @@ class Solver {
     // picks an unwritten cell and make a guess. Returs object like
     // {x,y,val}. Returns null if everything has been filled.
     guess() {
-        // do the stupid thing to find the first un-filled cell.
+        let r = {
+            x: 0,
+            y: 0,
+            val: STATE_SOLID
+        }
+        let maxScore = -Infinity
+
         for (let x = 0; x < this.width; x++) {
             for (let y = 0; y < this.height; y++) {
-                if (this.getXY(x,y) == STATE_EMPTY) {
-                    return {
-                        x,y,
-                        val: STATE_SOLID
-                    }
+                if (this.getXY(x,y) != STATE_EMPTY) {
+                    continue
+                }
+
+                let score = -this.lines.get("r"+y).wiggleRoom - this.lines.get("c"+x).wiggleRoom
+                let minX = Math.min(x, this.width-1-x)
+                let minY = Math.min(y, this.height-1-y)
+                score -= minX* this.height/10 + minY* this.width/10
+
+                if (minX == 0 || minY == 0) {
+                    score += this.width/5 + this.height/5
+                }
+
+                if (x > 0 && this.getXY(x-1,y) == STATE_SOLID) {
+                    score += 5
+                    r.val = STATE_X
+                }
+                if (y > 0 && this.getXY(x,y-1) == STATE_SOLID) {
+                    score += 5
+                    r.val = STATE_X
+                }
+                if (x < this.width-1 && this.getXY(x+1,y) == STATE_SOLID) {
+                    score += 5
+                    r.val = STATE_X
+                }
+                if (y < this.height-1 && this.getXY(x,y+1) == STATE_SOLID) {
+                    score += 5
+                    r.val = STATE_X
+                }
+
+                if (score > maxScore) {
+                    r.x = x
+                    r.y = y
+                    maxScore = score
                 }
             }
         }
+        return r
     }
 
     *solve() {
@@ -856,7 +895,6 @@ class Solver {
                 this.popState()
                 let g = this.guessed
                 this.setXY(g.x, g.y, g.val == STATE_SOLID? STATE_X : STATE_SOLID)
-                this.ui.highlightCell(g.x, g.y)
                 yield
                 this.ui.unhighlightCell(g.x, g.y)
                 this.guessed = null
@@ -871,7 +909,6 @@ class Solver {
                 this.setXY(g.x, g.y, g.val)
                 this.ui.highlightCell(g.x,g.y)
                 yield
-                this.ui.unhighlightCell(g.x,g.y)
             }
         }
     }
@@ -884,10 +921,18 @@ class Runner {
         this.process = process
         this.delay = delay
         this.processID = null
+        this.step = 1
     }
 
     runIt() {
         let n = this.process.next()
+        for (let i = 1; i < this.step; i++) {
+            n = this.process.next()
+            if (n.done) {
+                break
+            }
+        }
+
         if (!n.done) {
             let d = this.delay
             if (n.value != null) {
