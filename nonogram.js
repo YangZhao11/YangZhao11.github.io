@@ -424,8 +424,8 @@ class Slice {
         this.solver.setXY(x,y,val);
     }
 
-    // returns the first position >= start where a hole of size length
-    // is found. If no such hole is found, return -1.
+    // returns the first position >= start where a hole (no X) of size
+    // length is found. If no such hole is found, return -1.
     findHoleStartingAt(start, length) {
         let found = 0;
         for (let i = start; i < this.length; i++) {
@@ -622,7 +622,7 @@ class Line {
     //
     // 1. "X X" can be marked "XXX" if all possible segments >= 2
     // 2. "?SSS?" can be marked "XSSSX" if all possible segments =3.
-    // 3. (TODO) "X SS " can be marked "X SSS" if all potential segments >= 4.
+    // 3. "X SS " can be marked "X SSS" if all potential segments >= 4.
     *inferStrips() {
         let slice = this.slice;
         let lb = this.lb;
@@ -665,15 +665,44 @@ class Line {
                 let maxLen = seg.reduce(
                     (m, i)=> m <= len[i]? len[i]:m, len[seg[0]]
                 );
-                if (maxLen != stripLen) {
-                    continue;
-                }
-                seg.forEach(i=>ui.highlightSegment(this.name, i));
-                if (slice.setSegment(i-1, i, STATE_X) +
+                if (maxLen == stripLen &&
+                    slice.setSegment(i-1, i, STATE_X) +
                     slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
+                    seg.forEach(i=>ui.highlightSegment(this.name, i));
                     yield;
+                    seg.forEach(i=>ui.unhighlightSegment(this.name, i));
                 }
-                seg.forEach(i=>ui.unhighlightSegment(this.name, i));
+
+                let minLen = seg.reduce(
+                    (m, i)=> m >= len[i]? len[i]:m, len[seg[0]]
+                );
+                for (let j = i+stripLen;
+                     j < i+minLen && j < slice.length; j++) {
+                    let s = slice.getX(j)
+                    if (s == STATE_SOLID) {break}
+                    if (s == STATE_EMPTY) {continue}
+                    // we have strip "SSS  X" and can prepend some S
+                    if (slice.setSegment(j-minLen, i, STATE_SOLID) > 0) {
+                        seg.forEach(i=>ui.highlightSegment(this.name, i));
+                        yield;
+                        seg.forEach(i=>ui.unhighlightSegment(this.name, i));
+                    }
+                    break
+                }
+                for (let j = i-1;
+                     j >= i+stripLen-minLen && j >= 0; j--) {
+                    let s = slice.getX(j)
+                    if (s == STATE_SOLID) {break}
+                    if (s == STATE_EMPTY) {continue}
+                    // we have strip "X  SSS" and can append some S
+                    if (slice.setSegment(i+stripLen, j+minLen+1, STATE_SOLID) > 0) {
+                        seg.forEach(i=>ui.highlightSegment(this.name, i));
+                        yield;
+                        seg.forEach(i=>ui.unhighlightSegment(this.name, i));
+                        // todo: adjust stripLen
+                    }
+                    break
+                }
             }
         }
     }
@@ -835,8 +864,8 @@ class Solver {
     // {x,y,val}. Returns null if everything has been filled.
     guess() {
         let r = {
-            x: 0,
-            y: 0,
+            x: -1,
+            y: -1,
             val: STATE_SOLID
         }
         let maxScore = -Infinity
@@ -847,6 +876,7 @@ class Solver {
                     continue
                 }
 
+                let val = STATE_SOLID
                 let score = -this.lines.get("r"+y).wiggleRoom - this.lines.get("c"+x).wiggleRoom
                 let minX = Math.min(x, this.width-1-x)
                 let minY = Math.min(y, this.height-1-y)
@@ -858,29 +888,33 @@ class Solver {
 
                 if (x > 0 && this.getXY(x-1,y) == STATE_SOLID) {
                     score += 5
-                    r.val = STATE_X
+                    val = STATE_X
                 }
                 if (y > 0 && this.getXY(x,y-1) == STATE_SOLID) {
                     score += 5
-                    r.val = STATE_X
+                    val = STATE_X
                 }
                 if (x < this.width-1 && this.getXY(x+1,y) == STATE_SOLID) {
                     score += 5
-                    r.val = STATE_X
+                    val = STATE_X
                 }
                 if (y < this.height-1 && this.getXY(x,y+1) == STATE_SOLID) {
                     score += 5
-                    r.val = STATE_X
+                    val = STATE_X
                 }
 
                 if (score > maxScore) {
                     r.x = x
                     r.y = y
+                    r.val = val
                     maxScore = score
                 }
             }
         }
-        return r
+
+        if (r.x != -1) {
+            return r
+        }
     }
 
     *solve() {
