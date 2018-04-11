@@ -6,7 +6,7 @@
   <script src="nonogram.js"></script>
   <style>
     input[type="number"] {
-        width: 60px;
+        width: 50px;
     }
     td.g:nth-child(5n+1) {
         border-right: 2px solid black;
@@ -44,15 +44,6 @@
         font-family: monospace;
         text-align: right;
     }
-    th.hl {
-        background-color: #FD8;
-    }
-    span.dim {
-        color: #999;
-    }
-    span.hl {
-        color: #F35;
-    }
     .rowH input, .colH input {
         text-align: right;
         height: 11px;
@@ -62,40 +53,63 @@
         border-bottom: 1px solid #888;
         font-family: monospace;
     }
-    .set {background-color: #555;}
-    .set.c1 {background-color: black;}
-    .set.c2 {background-color: blue;}
-    .set.c3 {background-color: darkgreen;}
-    .set.c4 {background-color: #880;}
-    .set.c5 {background-color: #842;}
-    .set.c6 {background-color: darkred;}
-    .set.c7 {background-color: purple;}
-    .set.c8 {background-color: #0DF;}
-    .set.c9 {background-color: #DD0;}
-    .set.c10 {background-color: #E0E;}
-    .set.c11 {background-color: #3E8;}
-    .set.c12 {background-color: #E47;}
-    .set.c13 {background-color: #489;}
-    .set.c14 {background-color: #948;}
-    .x::before {
-        content: '╳';
-        position: absolute;
+
+    @media screen and (max-device-width: 480px) and (orientation: portrait){
+    .g {
+        height: 11px;
+        width: 11px;
     }
-    .x {color: #555;}
-    .x.c1 {color: black;}
-    .x.c2 {color: blue;}
-    .x.c3 {color: darkgreen;}
-    .x.c4 {color: #880;}
-    .x.c5 {color: #842;}
-    .x.c6 {color: darkred;}
-    .x.c7 {color: purple;}
-    .x.c8 {color: #0DF;}
-    .x.c9 {color: #DD0;}
-    .x.c10 {color: #E0E;}
-    .x.c11 {color: #3E8;}
-    .x.c12 {color: #E47;}
-    .x.c13 {color: #489;}
-    .x.c14 {color: #948;}
+    .colH {
+        height: 100px;
+        vertical-align: bottom;
+    }
+    .colH div {
+        width: 100px;
+        transform: rotate(90deg) translate(-15px, 100px);
+    }
+    .rowH {
+        height: 11px;
+        padding: 0;
+        line-height: 10px;
+    }
+    .rowH input, .colH input {
+        height: 9px;
+        width: 98px;
+        font-size: 9px;
+    }
+    .x {
+        -webkit-mask-position: -2px -2px;
+    }
+    }
+
+    th.hl {
+        background-color: #FD8;
+    }
+    span.dim {
+        color: #999;
+    }
+    span.hl {
+        color: #F35;
+    }
+    .set {background-color: #555;}
+    .g.c1 {background-color: black;}
+    .g.c2 {background-color: blue;}
+    .g.c3 {background-color: darkgreen;}
+    .g.c4 {background-color: #880;}
+    .g.c5 {background-color: #842;}
+    .g.c6 {background-color: darkred;}
+    .g.c7 {background-color: purple;}
+    .g.c8 {background-color: #0DF;}
+    .g.c9 {background-color: #DD0;}
+    .g.c10 {background-color: #E0E;}
+    .g.c11 {background-color: #3E8;}
+    .g.c12 {background-color: #E47;}
+    .g.c13 {background-color: #489;}
+    .g.c14 {background-color: #948;}
+    .x {
+        -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M12.656 4.281L8.937 8l3.719 3.719-.938.938-3.719-3.719-3.719 3.719-.938-.938L7.061 8 3.342 4.281l.938-.938 3.719 3.719 3.719-3.719z"/></svg>')
+    }
+
     .g.hl {
         border: 1px solid red;
     }

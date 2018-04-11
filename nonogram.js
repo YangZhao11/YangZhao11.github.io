@@ -527,7 +527,7 @@ class Line {
                     i--
                 } while (i >= 0 && sLen[i] < stripLen)
                 if (i < 0) {
-                    this.solver.fail(`Can no segment to cover segment ${nextSolid} (${stripLen})`)
+                    this.solver.fail(`${this.name}: No segment to cover strip ${nextSolid} (${stripLen})`)
                     return false
                 }
                 // move cursor back to where the pulled segment was.
@@ -541,7 +541,7 @@ class Line {
             // see if we can find a hole at cursor that's big enough.
             let hole = slice.findHoleStartingAt(cursor, sLen[i])
             if (hole == -1) {
-                this.solver.fail("Can not find hole for segment "+ i)
+                this.solver.fail(`${this.name}: Can not find hole for segment ${i}`)
                 return false
             }
             while (hole + sLen[i] < slice.length &&
@@ -553,7 +553,7 @@ class Line {
             i++
         }
         if (i < sLen.length) {
-            this.solver.fail(`not enough space for segment ${i}`)
+            this.solver.fail(`${this.name}: not enough space for segment ${i}`)
             return false
         }
         return true
@@ -579,7 +579,7 @@ class Line {
             let done = this.done[i] != 0;
 
             if (l + len - 1 > u) {
-                this.solver.fail(`not enough space for segment ${i}`);
+                this.solver.fail(`${this.name}: not enough space for segment ${i}`);
                 return;
             }
 
@@ -774,6 +774,12 @@ class Solver {
         for (let y = 0; y < this.height; y++) {
             this.dirty.push("r"+y)
         }
+
+        this.stats = {
+            lineCount: 0,
+            wrongGuesses: 0,
+            maxDepth: 0
+        }
     }
 
     fail(message) {
@@ -790,7 +796,7 @@ class Solver {
             return
         }
         if (this.getXY(x,y) != STATE_EMPTY) {
-            this.fail(`Inconsistent value at (${x},${y})`)
+            this.fail(`${this.lineName}: Writing ${val} to (${x},${y}) failed`)
             return
         }
         this.g[x+y*this.width] = val
@@ -822,6 +828,9 @@ class Solver {
         })
         this.states.push(state)
         this.ui.color++
+        if (this.stats.maxDepth < this.states.length) {
+            this.stats.maxDepth  = this.states.length
+        }
     }
 
     popState() {
@@ -852,6 +861,7 @@ class Solver {
             yield 0.1
             let line = this.lines.get(this.lineName)
             yield* line.infer()
+            this.stats.lineCount++
             this.ui.unhilightLine(this.lineName)
             this.lineName = ""
             if (this.failed) {
@@ -929,13 +939,15 @@ class Solver {
                 this.popState()
                 let g = this.guessed
                 this.setXY(g.x, g.y, g.val == STATE_SOLID? STATE_X : STATE_SOLID)
+                this.stats.wrongGuesses++
                 yield
                 this.ui.unhighlightCell(g.x, g.y)
                 this.guessed = null
             } else {
                 let g = this.guess()
                 if (g == null) {
-                    this.ui.log("done")
+                    let s = this.stats
+                    this.ui.log(`Done: ${s.lineCount} lines checked, ${s.wrongGuesses} wrong guesses, ${this.states.length} correct guesses, max search depth ${s.maxDepth}.`)
                     return
                 }
                 this.guessed = g
