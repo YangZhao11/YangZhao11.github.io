@@ -168,6 +168,7 @@ class UI {
         document.getElementById("r"+r).value = this.segmentsFromState(state)
     }
 
+    // Read segment constraints from painted cells and return a string.
     segmentsFromState(state) {
         let counted = 0
         let segments = new Array()
@@ -232,6 +233,7 @@ class UI {
             tb.appendChild(tr)
         }
 
+        // event listeners for
         setTimeout(()=>{
             tb.addEventListener("mousedown", this.mouseDownHandler)
             tb.addEventListener("mouseup", this.mouseUpHandler)
@@ -247,6 +249,22 @@ class UI {
             e.classList.remove("set")
             e.classList.remove("c1")
         }
+    }
+
+    getPictureJson() {
+        let j = {
+            width: this.width.toString(),
+            height: this.height.toString(),
+            rows: [],
+            cols: []
+        }
+        for (let x = 0; x < this.width; x++) {
+            j.cols.push(document.getElementById("c"+x).value)
+        }
+        for (let y = 0; y < this.height; y++) {
+            j.rows.push(document.getElementById("r"+y).value)
+        }
+        return JSON.stringify(j)
     }
 
     replaceInput(input) {
@@ -309,6 +327,9 @@ const presets = {
         "cols": ["7", "1 1 4", "1 7", "3 2", "1 1",
                  "1 1", "2 1", "1 1 1", "2 3", "7"]
     },
+    "lambda": {"width":"10","height":"12",
+               "rows":["2","1 2","1 1","2","1","3","3","2 2","2 1","2 2 1","2 3","2 2"],
+               "cols":["2 1","1 3","2 4","3 4","4","3","3","3","2","2"]},
     "Butterfly": {
         "width": "15",
         "height": "15",
@@ -504,6 +525,16 @@ class Line {
         this.wiggleRoom = this.slice.length - sum
     }
 
+    updateWiggleRoom() {
+        let w = 0;
+        let lb = this.lb
+        let ub = this.ub.slice().reverse().map(x=>this.slice.length - x -1);
+        for (let i = 0; i < this.lb.length; i++) {
+            let wi = ub[i] - this.lb[i] + 1 - this.len[i]
+            if (w < wi) { w = wi}
+        }
+        this.wiggleRoom = w
+    }
 
     // returns the leftmost possible position for each segment as a
     // integer array. Known leftmost position will be obeied. Return
@@ -544,13 +575,23 @@ class Line {
                 this.solver.fail(`${this.name}: Can not find hole for segment ${i}`)
                 return false
             }
+
+            // Move the segment forward if the tail is next to a solid
+            // cell. Also remember if skipped over solids - need to
+            // trace back and find an earlier segment to cover it in
+            // that case.
+            let skippedSolid = false
             while (hole + sLen[i] < slice.length &&
                    slice.getX(hole + sLen[i]) == STATE_SOLID) {
-                hole += 1
+                skippedSolid = skippedSolid || slice.getX(hole) == STATE_SOLID
+                hole++
             }
             lb[i] = hole
-            cursor = hole + sLen[i] + 1 // 1 for the space between this and next
-            i++
+            if (!skippedSolid) {
+                // set next allowable position and work on next segment
+                cursor = hole + sLen[i] + 1
+                i++
+            }
         }
         if (i < sLen.length) {
             this.solver.fail(`${this.name}: not enough space for segment ${i}`)
@@ -563,24 +604,25 @@ class Line {
     // the (constraint) segment. This does not cover all the potential
     // cases.
     *inferSegments() {
-        let slice = this.slice;
+        let changed = 0
+        let slice = this.slice
 
-        let lb = this.lb;
+        let lb = this.lb
         // ub is the real bound on the rightmost position. this.ub
         // counts from the right (for both segments, and slice), so we
         // need to flip both.
-        let ub = this.ub.slice().reverse().map(x=>slice.length - x -1);
+        let ub = this.ub.slice().reverse().map(x=>slice.length - x -1)
 
         for (let i = 0; i < lb.length; i++) {
-            let l = lb[i];
-            let u = ub[i];
-            let len = this.len[i];
-            let prevU = i>0? ub[i-1] : -1;
-            let done = this.done[i] != 0;
+            let l = lb[i]
+            let u = ub[i]
+            let len = this.len[i]
+            let prevU = i>0? ub[i-1] : -1
+            let done = this.done[i] != 0
 
             if (l + len - 1 > u) {
                 this.solver.fail(`${this.name}: not enough space for segment ${i}`);
-                return;
+                return 0;
             }
 
             if (l > prevU+1 &&
@@ -665,14 +707,6 @@ class Line {
                 let maxLen = seg.reduce(
                     (m, i)=> m <= len[i]? len[i]:m, len[seg[0]]
                 );
-                if (maxLen == stripLen &&
-                    slice.setSegment(i-1, i, STATE_X) +
-                    slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
-                    seg.forEach(i=>ui.highlightSegment(this.name, i));
-                    yield;
-                    seg.forEach(i=>ui.unhighlightSegment(this.name, i));
-                }
-
                 let minLen = seg.reduce(
                     (m, i)=> m >= len[i]? len[i]:m, len[seg[0]]
                 );
@@ -686,6 +720,8 @@ class Line {
                         seg.forEach(i=>ui.highlightSegment(this.name, i));
                         yield;
                         seg.forEach(i=>ui.unhighlightSegment(this.name, i));
+                        stripLen += i-(j-minLen)
+                        i = j-minLen
                     }
                     break
                 }
@@ -699,9 +735,16 @@ class Line {
                         seg.forEach(i=>ui.highlightSegment(this.name, i));
                         yield;
                         seg.forEach(i=>ui.unhighlightSegment(this.name, i));
-                        // todo: adjust stripLen
+                        stripLen += j+minLen+1 - (i+stripLen)
                     }
                     break
+                }
+                if (maxLen == stripLen &&
+                    slice.setSegment(i-1, i, STATE_X) +
+                    slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
+                    seg.forEach(i=>ui.highlightSegment(this.name, i));
+                    yield;
+                    seg.forEach(i=>ui.unhighlightSegment(this.name, i));
                 }
             }
         }
@@ -726,6 +769,7 @@ class Line {
                               this.len.slice().reverse(), this.ub)) {
             return
         }
+        this.updateWiggleRoom()
         yield* this.inferSegments()
         yield* this.inferStrips()
     }
@@ -810,11 +854,18 @@ class Solver {
     }
 
     markDirty(lineName) {
-        let i = this.dirty.indexOf(lineName)
-        if (i != -1) {
-            this.dirty.splice(i, 1)
+        if (this.dirty.indexOf(lineName) == -1) {
+            this.dirty.push(lineName)
         }
-        this.dirty.push(lineName)
+    }
+
+    getDirty() {
+        this.dirty.sort((a,b)=> {
+            let wa = this.lines.get(a).wiggleRoom
+            let wb = this.lines.get(b).wiggleRoom
+            return wb - wa // sort by descending order
+        })
+        return this.dirty.pop()
     }
 
     pushState() {
@@ -856,7 +907,7 @@ class Solver {
     // make inference on lines until all lines are checked.
     *infer() {
         while (this.dirty.length > 0) {
-            this.lineName = this.dirty.pop()
+            this.lineName = this.getDirty()
             this.ui.highlightLine(this.lineName)
             yield 0.1
             let line = this.lines.get(this.lineName)
