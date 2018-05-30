@@ -12,7 +12,7 @@ function CheckDims(width, height) {
 
 const STATE_EMPTY = 0
 const STATE_SOLID = 1
-const STATE_X = 2
+const STATE_CROSSED = 2
 
 class UI {
     constructor(tb) {
@@ -42,7 +42,7 @@ class UI {
         case STATE_SOLID:
             cell.className = "g set c" + this.color
             break
-        case STATE_X:
+        case STATE_CROSSED:
             cell.className = "g x c" + this.color
         }
     }
@@ -320,19 +320,15 @@ function OnClearBtn() {
 
 const presets = {
     "TV": {
-        "width": "10",
-        "height": "10",
         "rows": ["1 1", "1 1", "10", "1 2 2", "3 1",
                  "1 1 1", "3 1", "4 2", "10", "1 1"],
         "cols": ["7", "1 1 4", "1 7", "3 2", "1 1",
                  "1 1", "2 1", "1 1 1", "2 3", "7"]
     },
-    "lambda": {"width":"10","height":"12",
-               "rows":["2","1 2","1 1","2","1","3","3","2 2","2 1","2 2 1","2 3","2 2"],
-               "cols":["2 1","1 3","2 4","3 4","4","3","3","3","2","2"]},
+    "lambda": {
+        "rows":["2","1 2","1 1","2","1","3","3","2 2","2 1","2 2 1","2 3","2 2"],
+        "cols":["2 1","1 3","2 4","3 4","4","3","3","3","2","2"]},
     "Butterfly": {
-        "width": "15",
-        "height": "15",
         "rows": ["3 1", "5 6", "2 4 1", "2 1 3 1 2", "1 1 3 2 2",
                  "1 1 2 1 1 2", "1 2 3 2", "2 2 2 4", "1 1 1 1 4", "1 2 4",
                  "6 1", "3 1 2", "3 1", "2 2 2", "2 3"],
@@ -341,8 +337,6 @@ const presets = {
                  "2 3 4 1", "1 1 3 3", "1 4 1", "1 6", "5 1"]
     },
     "Santa": {
-        "width": "25",
-        "height": "25",
         "rows": ["10", "14", "16", "17", "18",
                  "2 6", "1 5", "1 1 2", "13 1 1", "2 3 4 1 1",
                  "14 2 2", "2 2 5 3 1", "1 10 2", "2 4 1", "1 5 7 1",
@@ -355,8 +349,6 @@ const presets = {
                  "7 3 4", "6 2 13", "6 1 10", "4 1 9", "2 8"]
     },
     "Bear": {
-        "width": "25",
-        "height": "30",
         "rows": ["6", "8", "3 4", "2 2 2", "1 1 5 4 3",
                  "1 1 3 1 1 2 1 1", "5 3 1 2 1 3", "7 1 2 5", "1 1 5 3 8", "3 3 2 3 1 1",
                  "4 1 1 1", "4 4 2", "1 1 4 2", "1 1 1 1", "1 5 1 1",
@@ -370,8 +362,6 @@ const presets = {
                  "4", "1 5", "1 3 1", "4 2", "1"]
     },
     "Very Hard": {
-        "width": "50",
-        "height": "40",
         "rows": ["23", "19 6", "8 3", "3 2", "3 7 9 2",
                  "3 2 4 2 2", "2 2", "1 1", "1 6 2", "2 4 10 2",
                  "2 7 2 8 1 3", "2 2 10 2 10 1 3", "5 4 4 2 6 2", "2 4 1 2 4 3 2", "2 8 2 6 1 2 2",
@@ -390,8 +380,19 @@ const presets = {
                  "2 1 2 1 10 1 2", "2 2 2 2 2 3", "2 2 2 2 5 1 2", "2 2 1 5 2", "2 2 2 3 1",
                  "2 1 7 2", "3 1 4 2", "3 2 2 2", "4 2 1 3", "3 6 3",
                  "3 4 3", "2 4", "2 3", "3 4", "6"]
+    },
+    "basketball": {
+        "rows": ["5 6", "5 1 6", "4 2 2", "4 1 1 2 3", "4 1 2 3",
+                 "3 1 2 3", "1 2 2", "1 1 5", "7 4 1", "9 5",
+                 "9 1 1", "3 6", "1 2 7", "1 2 3 4", "1 3 4 1 1",
+                 "1 3 4 1 3", "1 1 7 2 1", "2 7 4", "1 1 1 5", "1 1 1 5",
+                 "1 1 1 1 5", "1 1 3 3", "7 1", "1 1 1 1", "1 1 1 1",
+                 "1 1 1 1", "4 3", "4 3", "3 4", "4 5"],
+        "cols": ["2", "2 1", "2 1 2", "3 2 4", "15 5",
+                 "5 10 3 2 1", "11 2 1 1 1", "6 10 3 1", "5 10 3", "2 14 1",
+                 "1 2 1 5 4 4", "2 2 5 2 1 2", "1 4 2 4", "2 1 2 4", "10 1 1 6",
+                 "10 1 1 3 2", "2 3 1 5 1", "2 3 4 1 5", "2 3 1 1 1 5", "2 3 1 1 5"]
     }
-
 }
 
 function PopulatePresets() {
@@ -400,7 +401,9 @@ function PopulatePresets() {
         v = presets[p]
         let option = document.createElement("option")
         option.value = p
-        option.textContent = v.name ? v.name : `${p} (${v.width}x${v.height})`
+        let width = v.cols.length
+        let height = v.rows.length
+        option.textContent = v.name ? v.name : `${p} (${width}x${height})`
         preset.appendChild(option)
     }
 }
@@ -411,8 +414,8 @@ function OnPresetBtn() {
         return;
     }
     let p = presets[preset];
-    document.getElementById("dim-width").value = p.width;
-    document.getElementById("dim-height").value = p.height;
+    document.getElementById("dim-width").value = p.cols.length;
+    document.getElementById("dim-height").value = p.rows.length;
     OnClearBtn();
     setTimeout(function(){
         p.rows.forEach((v, i) => {
@@ -450,7 +453,7 @@ class Slice {
     findHoleStartingAt(start, length) {
         let found = 0;
         for (let i = start; i < this.length; i++) {
-            if (this.getX(i) == STATE_X) {
+            if (this.getX(i) == STATE_CROSSED) {
                 found = 0;
             } else {
                 found += 1;
@@ -604,7 +607,6 @@ class Line {
     // the (constraint) segment. This does not cover all the potential
     // cases.
     *inferSegments() {
-        let changed = 0
         let slice = this.slice
 
         let lb = this.lb
@@ -626,7 +628,7 @@ class Line {
             }
 
             if (l > prevU+1 &&
-                slice.setSegment(prevU+1, l, STATE_X) > 0) {
+                slice.setSegment(prevU+1, l, STATE_CROSSED) > 0) {
                 yield;
             }
 
@@ -643,7 +645,7 @@ class Line {
             }
         }
         if (ub[ub.length-1]+1 < slice.length &&
-            slice.setSegment(ub[ub.length-1]+1, slice.length, STATE_X) > 0) {
+            slice.setSegment(ub[ub.length-1]+1, slice.length, STATE_CROSSED) > 0) {
             yield;
         }
     }
@@ -680,8 +682,8 @@ class Line {
             }
 
             if (slice.getX(i) == STATE_EMPTY) {
-                if (slice.getX(i-1) != STATE_X ||
-                    slice.getX(i+stripLen) != STATE_X)  {
+                if (slice.getX(i-1) != STATE_CROSSED ||
+                    slice.getX(i+stripLen) != STATE_CROSSED)  {
                     continue;
                 }
                 // find holes that's smaller than all potential
@@ -694,7 +696,7 @@ class Line {
                     continue;
                 }
                 seg.forEach(i=>ui.highlightSegment(this.name, i));
-                if (slice.setSegment(i, i+stripLen, STATE_X) > 0) {
+                if (slice.setSegment(i, i+stripLen, STATE_CROSSED) > 0) {
                     yield;
                 }
                 seg.forEach(i=>ui.unhighlightSegment(this.name, i));
@@ -740,8 +742,8 @@ class Line {
                     break
                 }
                 if (maxLen == stripLen &&
-                    slice.setSegment(i-1, i, STATE_X) +
-                    slice.setSegment(i+stripLen, i+stripLen+1, STATE_X) > 0) {
+                    slice.setSegment(i-1, i, STATE_CROSSED) +
+                    slice.setSegment(i+stripLen, i+stripLen+1, STATE_CROSSED) > 0) {
                     seg.forEach(i=>ui.highlightSegment(this.name, i));
                     yield;
                     seg.forEach(i=>ui.unhighlightSegment(this.name, i));
@@ -755,7 +757,7 @@ class Line {
 
         // special case for no segments.
         if (this.len.length == 0) {
-            if (slice.setSegment(0, slice.length, STATE_X) > 0) {
+            if (slice.setSegment(0, slice.length, STATE_CROSSED) > 0) {
                 yield
             }
             return
@@ -949,19 +951,19 @@ class Solver {
 
                 if (x > 0 && this.getXY(x-1,y) == STATE_SOLID) {
                     score += 5
-                    val = STATE_X
+                    val = STATE_CROSSED
                 }
                 if (y > 0 && this.getXY(x,y-1) == STATE_SOLID) {
                     score += 5
-                    val = STATE_X
+                    val = STATE_CROSSED
                 }
                 if (x < this.width-1 && this.getXY(x+1,y) == STATE_SOLID) {
                     score += 5
-                    val = STATE_X
+                    val = STATE_CROSSED
                 }
                 if (y < this.height-1 && this.getXY(x,y+1) == STATE_SOLID) {
                     score += 5
-                    val = STATE_X
+                    val = STATE_CROSSED
                 }
 
                 if (score > maxScore) {
@@ -989,7 +991,7 @@ class Solver {
                 this.failed = false
                 this.popState()
                 let g = this.guessed
-                this.setXY(g.x, g.y, g.val == STATE_SOLID? STATE_X : STATE_SOLID)
+                this.setXY(g.x, g.y, g.val == STATE_SOLID? STATE_CROSSED : STATE_SOLID)
                 this.stats.wrongGuesses++
                 yield
                 this.ui.unhighlightCell(g.x, g.y)
