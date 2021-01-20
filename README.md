@@ -28,7 +28,7 @@ some deduction and cross-referencing between rows and columns.
 
 ## An Example
 
-Lets look at this 5x5 puzzle.
+Lets look at this 5x4 puzzle.
 
 ```
      1111
@@ -70,7 +70,7 @@ Similarly, `2 2` row can be completely decided.
 
 Here we are marking a white pixel with `x`, to differentiate it with
 undecided pixels. Note this white pixel can help decide on the third
-row: the second `1` must be below this white pixel (since we can not
+column: the second `1` must be below this white pixel (since we can not
 fix two `1`s before it), so we can deduce that the middle pixel in the
 last row is black.
 
